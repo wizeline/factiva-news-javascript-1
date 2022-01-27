@@ -121,7 +121,7 @@ class BulkNewsJob {
   async submitJob(payload) {
     this.submittedDatetime = Date.now();
     const headers = {
-      'user-key': this.userKey.apiKey,
+      'user-key': this.userKey.key,
       'Content-Type': 'application/json',
     };
 
@@ -153,7 +153,7 @@ class BulkNewsJob {
     }
 
     const headers = {
-      'user-key': this.userKey.apiKey,
+      'user-key': this.userKey.key,
       'Content-Type': 'application/json',
     };
 
@@ -211,7 +211,7 @@ class BulkNewsJob {
    * @param {string} downloadPath - path where to store the downloaded file
    */
   async downloadFile(endpointUrl, downloadPath) {
-    const headers = { 'user-key': this.userKey.apiKey, responseType: 'stream' };
+    const headers = { 'user-key': this.userKey.key, responseType: 'stream' };
 
     const response = await helper.apiSendRequest({
       method: 'GET',
@@ -252,10 +252,11 @@ class BulkNewsJob {
       mkdirSync(finalDownloadPath);
     }
 
-    const downloadPromises = this.map((fileUrl) => {
-      const fileName = this.getFileName(fileUrl);
+    const downloadPromises = [];
+    this.files.forEach((fileUrl) => {
+      const fileName = BulkNewsJob.getFileName(fileUrl);
       const filePath = join(finalDownloadPath, fileName);
-      return downloadPromises.push((fileUrl, filePath));
+      downloadPromises.push(this.downloadFile(fileUrl, filePath));
     });
 
     await Promise.all(downloadPromises);

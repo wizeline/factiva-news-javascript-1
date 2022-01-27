@@ -1,5 +1,5 @@
 {
-  "UserKey": "USER_KEY",
+  "userKey": "USER_KEY",
   "SnapshotId": "FACTIVA_SNAPSHOTID",
   "StreamId": "FACTIVA_STREAM_ID",
   "UpdateId": "FACTIVA_SNAPSHOT_UPDATE_ID"

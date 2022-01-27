@@ -49,6 +49,7 @@ class Taxonomy {
   constructor(userKey) {
     this.categories = [];
     this.userKey = new UserKey(userKey);
+    this.identifiers = [];
   }
 
   /**
@@ -58,6 +59,7 @@ class Taxonomy {
   async setInfo(userKey, requestInfo) {
     this.userKey = await UserKey.create(userKey, requestInfo);
     this.categories = await this.getCategories();
+    this.identifiers = await this.getIdentifiers();
   }
 
   /**
@@ -69,9 +71,8 @@ class Taxonomy {
    * // be accessed as is.
    */
   async getCategories() {
-    const headers = { 'user-key': this.userKey.apiKey };
+    const headers = { 'user-key': this.userKey.key };
     const endpointUrl = `${constants.API_HOST}${constants.API_SNAPSHOTS_TAXONOMY_BASEPATH}`;
-
     const response = await helper.apiSendRequest({
       method: 'GET',
       endpointUrl,
@@ -79,6 +80,26 @@ class Taxonomy {
     });
 
     return response.data.data.map((category) => category.attributes.name);
+  }
+
+  /**
+   * Requests a list of companies identifiers
+   * @returns {string[]} - the available companies identifiers
+   * @throws {Error} - When API request returns unexpected error
+   * @example
+   * // This method is called in the create method, so the categories can
+   * // be accessed as is.
+   */
+  async getIdentifiers() {
+    const headers = this.userKey.getAuthenticationHeaders();
+    const endpointUrl = `${constants.API_HOST}${constants.API_SNAPSHOTS_COMPANY_IDENTIFIERS_BASEPATH}`;
+    const response = await helper.apiSendRequest({
+      method: 'GET',
+      endpointUrl,
+      headers,
+    });
+
+    return response.data.data.attributes;
   }
 
   /**
@@ -97,7 +118,7 @@ class Taxonomy {
     helper.validateType(category, 'string');
 
     const responseFormat = 'csv';
-    const headers = { 'user-key': this.userKey.apiKey, responseType: 'stream' };
+    const headers = { 'user-key': this.userKey.key, responseType: 'stream' };
     const endpointUrl = `${constants.API_HOST}${constants.API_SNAPSHOTS_TAXONOMY_BASEPATH}/${category}/${responseFormat}`;
 
     const response = await helper.apiSendRequest({
@@ -136,7 +157,7 @@ class Taxonomy {
     helper.validateType(codeType, 'string');
     helper.validateType(companyCode, 'string');
 
-    const headers = { 'user-key': this.userKey.apiKey };
+    const headers = { 'user-key': this.userKey.key };
     const endpointUrl = `${constants.API_HOST}${constants.API_SNAPSHOTS_COMPANIES_BASEPATH}/${codeType}/${companyCode}`;
 
     const response = await helper.apiSendRequest({
@@ -177,7 +198,7 @@ class Taxonomy {
       helper.validateType(company, 'string');
     });
 
-    const headers = { 'user-key': this.userKey.apiKey };
+    const headers = { 'user-key': this.userKey.key };
 
     const payload = { data: { attributes: { ids: companiesCodes } } };
 

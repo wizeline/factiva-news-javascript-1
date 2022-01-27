@@ -13,7 +13,7 @@ class Stream {
     snapshotId = null,
     query = '',
     streamUser = null,
-    apiKey = null,
+    key = null,
     requestInfo = false,
   } = {}) {
     /**
@@ -31,7 +31,7 @@ class Stream {
      * can be created from a given query in Dataflow SQL query syntax.
      * @param {object} [streamUser=null] - Indicates the user which is
      * associated the current stream. The user is an instance from streamUser
-     * @param {object} [apiKey=null] - Indicates the apiKey to use
+     * @param {object} [key=null] - Indicates the key to use
      * for create a user. This applies only if there isn't a streamUser
      * @param {boolean} [requestInfo=false] - Indicates if the user
      * needs to load the account details
@@ -40,7 +40,7 @@ class Stream {
     this.snapshotId = snapshotId;
     this.query = new BulkNewsQuery(query);
     // eslint-disable-next-line
-    this.streamUser = streamUser instanceof StreamUser ? streamUser : new StreamUser(apiKey, requestInfo);
+    this.streamUser = streamUser instanceof StreamUser ? streamUser : new StreamUser(key, requestInfo);
     this.subscriptions = {};
 
     if (!this.streamUser) throw ReferenceError('Undefined Stream User');

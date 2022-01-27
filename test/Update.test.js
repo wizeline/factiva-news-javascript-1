@@ -10,8 +10,8 @@ const { Snapshot } = require('../lib/factiva/news/snapshot');
 const { UpdateJob } = require('../lib/factiva/news/snapshot');
 
 const { constants } = core;
-const VALID_SNAPSHOT_ID = helper.loadEnvVariable('SnapshotId');
-const VALID_UPDATE_ID = helper.loadEnvVariable('UpdateId');
+//const VALID_SNAPSHOT_ID = helper.loadEnvVariable('SnapshotId');
+//const VALID_UPDATE_ID = helper.loadEnvVariable('UpdateId');
 
 describe('Factiva News - ', () => {
   describe('Update Snapshots - ', () => {
@@ -25,11 +25,11 @@ describe('Factiva News - ', () => {
     //   expect(s.lastUpdateJob.files.length).to.be.greaterThan(0);
     // });
 
-    it('should dowload the files from a previous update', async () => {
+/*     it('should dowload the files from a previous update', async () => {
       const uj = new UpdateJob(null, { updateId: VALID_UPDATE_ID });
       await uj.getJobResults();
       await uj.downloadJobFiles();
       expect(uj.files.length).to.be.greaterThan(0);
-    });
+    }); */
   });
 });

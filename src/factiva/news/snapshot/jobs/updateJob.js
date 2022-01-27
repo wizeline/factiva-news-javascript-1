@@ -40,8 +40,8 @@ class UpdateJob extends ExtractionJob {
       this.jobId = updateId;
       const updateIdTokens = updateId.split('-');
       [this.snapshotId, this.updateType] = updateIdTokens;
-
-      this.link = `${constants.API_HOST}${constants.API_SNAPSHOTS_BASEPATH}/dj-synhub-extraction-${this.userKey.apiKey}-${updateId}`;
+      
+      this.link = `${constants.API_HOST}${constants.API_SNAPSHOTS_BASEPATH}/dj-synhub-extraction-${this.userKey.key}-${updateId}`;
     } else if (snapshotId && updateType) {
       this.updateType = updateType;
       this.snapshotId = snapshotId;
@@ -52,7 +52,7 @@ class UpdateJob extends ExtractionJob {
 
   getEndpointUrl() {
     // eslint-disable-next-line max-len
-    return `${constants.API_HOST}${constants.API_EXTRACTIONS_BASEPATH}/dj-synhub-extraction-${this.userKey.apiKey}-${this.snapshotId}/${this.updateType}`;
+    return `${constants.API_HOST}${constants.API_EXTRACTIONS_BASEPATH}/dj-synhub-extraction-${this.userKey.key}-${this.snapshotId}/${this.updateType}`;
   }
 
   // eslint-disable-next-line class-methods-use-this
