@@ -1,7 +1,8 @@
 // eslint-disable-next-line import/no-extraneous-dependencies, import/no-unresolved
 import { core, helper } from '@factiva/core';
+import { existsSync, mkdirSync, readFileSync, unlinkSync } from 'fs';
 import parser from 'papaparse';
-
+import { join } from 'path';
 const { constants } = core;
 const { UserKey } = core;
 
@@ -105,6 +106,7 @@ class Taxonomy {
   /**
    * Requests the codes available in the taxonomy for the specified category
    * @param {string} category - Name of the taxonomy category to request the codes from
+   * @param {boolean} [saveFile=false] - Flag to determine if the file must be saved after processing
    * @returns {pending} - Codes for the specified category
    * @throws {TypeError} - When category is not of a valid type
    * @throws {Error} - When API request returns unexpected error
@@ -114,30 +116,57 @@ class Taxonomy {
    * taxonomy = Taxonomy()
    * industryCodes = taxonomy.getCategoryCodes('industries')
    */
-  async getCategoryCodes(category) {
+  async getCategoryCodes(category, saveFile = false) {
     helper.validateType(category, 'string');
 
     const responseFormat = 'csv';
-    const headers = { 'user-key': this.userKey.key, responseType: 'stream' };
+    const headers = this.userKey.getAuthenticationHeaders();
     const endpointUrl = `${constants.API_HOST}${constants.API_SNAPSHOTS_TAXONOMY_BASEPATH}/${category}/${responseFormat}`;
-
-    const response = await helper.apiSendRequest({
+    const filePath = join(process.cwd(), `temporalFiles`);
+    if (!existsSync(filePath)) {
+      mkdirSync(filePath);
+    }
+    const fileFullPath = join(
+      filePath,
+      `${category}_codes_${Date.now()}.${responseFormat}`,
+    );
+    const formattedData = {};
+    await helper.apiSendRequest({
       method: 'GET',
       endpointUrl,
       headers,
+      responseType: constants.REQUEST_STREAM_TYPE,
+      fileName: fileFullPath,
     });
 
-    const parsedData = parser.parse(response.data, {
-      header: true,
-      transformHeader: (header) => header.trim(),
-    });
-    const formattedData = {};
-
-    parsedData.data.forEach((entry) => {
+    let parsedData = await this.readCSV(fileFullPath);
+    parsedData.forEach((entry) => {
       formattedData[entry.code] = entry.description;
     });
 
+    if (!saveFile) {
+      unlinkSync(fileFullPath);
+    }
     return formattedData;
+  }
+
+  /**
+   * Read CSV from a local directory
+   * @param {string} filePath - Path from a local file
+   * @returns {Object} JSON representation of the csv file
+   */
+  async readCSV(filePath) {
+    const csvFile = readFileSync(filePath);
+    const csvData = csvFile.toString();
+    return new Promise((resolve) => {
+      parser.parse(csvData, {
+        header: true,
+        transformHeader: (header) => header.trim(),
+        complete: (results) => {
+          resolve(results.data);
+        },
+      });
+    });
   }
 
   /**

@@ -27,6 +27,16 @@ describe('Factiva News - ', () => {
       });
     });
 
+    it('should get a parse a big file request', async () => {
+      const taxonomy = await Taxonomy.create(VALID_USER_KEY, false);
+      const companyCodes = await taxonomy.getCategoryCodes('companies');
+      expect(companyCodes).to.include({
+        EBAAMC: 'E.B.A. & M. Corporation',
+        AZHI: 'Az Holdings Inc',
+        ORELSZ: 'ORELSELPROM OOO',
+      });
+    }).timeout(0);
+    
     it('should request data for a company', async () => {
       const taxonomy = await Taxonomy.create(VALID_USER_KEY);
       const companyData = await taxonomy.getCompany('isin', {
