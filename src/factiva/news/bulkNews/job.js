@@ -262,6 +262,28 @@ class BulkNewsJob {
     await Promise.all(downloadPromises);
   }
 
+  /**
+   * Obtain the Explain job samples from the Factiva Snapshots API.
+   * Returns a object array of up to 100 sample documents which  includes title and metadata fields.
+   * @param {number} [numSamples=10] - Number of sample documents to get explained by a job
+   * @returns {Promise<Object>} List of explain job samples
+   */
+  async getJobSamples(numSamples) {
+    const headers = { 'user-key': this.userKey.key };
+    const qsParams = { num_samples: numSamples };
+    const endpointUrl = `${this.getEndpointUrl()}/${this.jobId}`;
+    console.log('Samples link: ', endpointUrl);
+
+    const response = await helper.apiSendRequest({
+      method: 'GET',
+      endpointUrl,
+      headers,
+      qsParams,
+    });
+
+    return response.data.data.attributes.sample;
+  }
+
   static getFileName(fileUrl) {
     const partName = fileUrl.split('/').pop();
     if (fileUrl.includes('deletes')) {

@@ -6,7 +6,7 @@ import { BulkNewsBase } from '../bulkNews';
 import { ExplainJob, AnalyticsJob, ExtractionJob, UpdateJob } from './jobs';
 import SnapshotQuery from './query';
 
-const { UserKey } = core;
+const { UserKey, constants } = core;
 
 /**
  * Class that represents a Factiva Snapshot.
@@ -257,6 +257,21 @@ class Snapshot extends BulkNewsBase {
       throw new ReferenceError('Update Job has not been set');
     }
     await this.lastUpdateJob.downloadJobFiles(downloadPath);
+  }
+
+  /**
+   * Obtain the Explain job samples from the Factiva Snapshots API.
+   * Returns a object array of up to 100 sample documents which  includes title and metadata fields.
+   * @param {number} [numSamples=10] - Number of sample documents to get explained by a job
+   * @returns {Promise<Object>} List of explain job samples
+   */
+  async getExplainJobSamples(numSamples = 10) {
+    this.lastExplainJob.extractionType = constants.API_SAMPLES_EXTRACTION_TYPE;
+    const explainJobSamples = await this.lastExplainJob.getJobSamples(
+      numSamples,
+    );
+
+    return explainJobSamples;
   }
 
   /**
