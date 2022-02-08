@@ -132,7 +132,11 @@ class Snapshot extends BulkNewsBase {
    * properties.
    */
   async submitAnalyticsJob() {
-    await this.lastAnalyticsJob.submitJob(this.query.getAnalyticsQuery());
+    let useLatestApiVersion = true;
+    if (typeof this.query.groupBySourceCode === 'boolean') {
+      useLatestApiVersion = true;
+    }
+    await this.lastAnalyticsJob.submitJob(this.query.getAnalyticsQuery(), useLatestApiVersion);
   }
 
   /**
@@ -155,7 +159,11 @@ class Snapshot extends BulkNewsBase {
    * await mySnapshot.processAnalytics();
    */
   async processAnalytics() {
-    await this.lastAnalyticsJob.processJob(this.query.getAnalyticsQuery());
+    let useLatestApiVersion = true;
+    if (typeof this.query.groupBySourceCode === 'boolean') {
+      useLatestApiVersion = true;
+    }
+    await this.lastAnalyticsJob.processJob(this.query.getAnalyticsQuery(), useLatestApiVersion);
   }
 
   /**

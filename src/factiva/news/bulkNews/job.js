@@ -116,14 +116,18 @@ class BulkNewsJob {
    * or Streams API. On a successful response from the API, saves the
    * link of the job as well as the jobId on the caller instance.
    * @param {Object} [payload = undefined] - data required to submit the job
+   * @param {boolean} [useLatestApiVersion = false] - Flag to use new Analitycs API version
    * @throws {Error} - when the API reponse does not have a 201 status code.
    */
-  async submitJob(payload) {
+  async submitJob(payload, useLatestApiVersion = false) {
     this.submittedDatetime = Date.now();
     const headers = {
       'user-key': this.userKey.key,
       'Content-Type': 'application/json',
     };
+    if (useLatestApiVersion) {
+      headers['X-API-VERSION'] = constants.API_LATEST_VERSION;
+    }
 
     const response = await helper.apiSendRequest({
       method: 'POST',
@@ -186,11 +190,12 @@ class BulkNewsJob {
    * Submits a new job to be processed, waits until the job is completed
    * and then retrieves the job results.
    * @param {string|Object} [payload = undefined] - data required to process the job
+   * @param {boolean} [useLatestApiVersion = false] - Flag to use new Analitycs API version
    * @throws {RangeError} - when an unexpected state is returned from API
    * @throws {Error} - when the returned state is a failed state
    */
-  async processJob(payload = undefined) {
-    await this.submitJob(payload);
+  async processJob(payload = undefined, useLatestApiVersion = false) {
+    await this.submitJob(payload, useLatestApiVersion);
     await this.getJobResults();
     // eslint-disable-next-line no-console
     console.log('Job link: ', this.link);
