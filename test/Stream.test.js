@@ -77,16 +77,6 @@ describe('Factiva News - ', () => {
       expect(stream.create()).to.eventually.be.instanceOf(StreamResponse);
     });
 
-    // it('should create and delete a stream instance using a query', async () => {
-    //   const stream = new Stream({
-    //     streamId:
-    //       'replace-for-id',
-    //     key: VALID_USER_KEY,
-    //   });
-
-    //   expect(stream.delete()).to.eventually.be.instanceOf(StreamResponse);
-    // });
-
     it('should get info about query by its', async () => {
       const stream = new Stream({
         streamId: VALID_STREAM_ID,
@@ -94,6 +84,30 @@ describe('Factiva News - ', () => {
       });
 
       expect(stream.getInfo()).to.eventually.be.instanceOf(StreamResponse);
+    });
+
+    it('should get info about all streams', async () => {
+      const stream = new Stream({
+        streamId: VALID_STREAM_ID,
+        key: VALID_USER_KEY,
+      });
+
+      const streams = await stream.getAllStreams();
+      console.log(streams[0].toString());
+      expect(Array.isArray(streams)).to.be.true;
+    });
+
+    it('should create and destroy subscription', async () => {
+      const stream = new Stream({
+        streamId: VALID_STREAM_ID,
+        key: VALID_USER_KEY,
+      });
+
+      const subscriptionId = await stream.createSubscription();
+      expect(subscriptionId).to.be.a('string');
+
+      const deleteProcess = await stream.deleteSubscription(subscriptionId);
+      expect(deleteProcess).to.be.true;
     });
   });
 });

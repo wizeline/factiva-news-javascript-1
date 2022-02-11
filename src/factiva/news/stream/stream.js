@@ -40,7 +40,10 @@ class Stream {
     this.snapshotId = snapshotId;
     this.query = new BulkNewsQuery(query);
     // eslint-disable-next-line
-    this.streamUser = streamUser instanceof StreamUser ? streamUser : new StreamUser(key, requestInfo);
+    this.streamUser =
+      streamUser instanceof StreamUser
+        ? streamUser
+        : new StreamUser(key, requestInfo);
     this.subscriptions = {};
 
     if (!this.streamUser) throw ReferenceError('Undefined Stream User');
@@ -187,6 +190,34 @@ class Stream {
       ackEnabled,
       userErrorHandling,
     });
+  }
+
+  /**
+   * Get information of all streams from the current stream being used
+   * @return {Array.<StreamResponse>} - way for handling every factiva stream response.
+   * @throws {ReferenceError} - when stream id has not been found.
+   */
+  async getAllStreams() {
+    const uri = `${this.streamUrl}`;
+    const headers = this.streamUser.getAuthenticationHeaders();
+    const response = await helper.apiSendRequest({
+      method: 'GET',
+      endpointUrl: uri,
+      headers,
+    });
+    const { data } = response;
+    const streams = [];
+
+    data.data.forEach((stream) => {
+      streams.push(
+        new StreamResponse({
+          ...stream,
+          ...(stream.links ? { links: stream.links } : null),
+        }),
+      );
+    });
+
+    return streams;
   }
 
   /**
