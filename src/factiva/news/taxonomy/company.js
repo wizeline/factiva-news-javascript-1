@@ -95,7 +95,7 @@ class Company {
    * @param {string} fileFormat - Format of the file requested
    * @param {string} [toSavePath=null] - Path to be used to store the file
    * @param {boolean} [addTimestamp=false] - Flag to determine if include timestamp info at the filename
-   * @returns {string} - Dowloaded file path
+   * @returns {string} Dowloaded file path
    * @throws {RangeError} - if the user is not allowed to permorm this operation
    * @throws {RangeError} - if the identifier requested is not valid
    * @throws {RangeError} - if the format file requested is not valid
@@ -122,6 +122,25 @@ class Company {
     );
 
     return localFile;
+  }
+
+  /**
+   * Returns the resolved Factiva code and date ranges when the instrument from the identifier, was valid.
+   * @param {string} identifier - A company identifier type
+   * @param {string} value - Identifier value
+   * @returns {object} Factiva code and date ranges from a company
+   */
+  async pointInTimeQuery(identifier, value) {
+    this.validatePointInTimeRequest(identifier);
+    const headers = this.userKey.getAuthenticationHeaders();
+    const endpoint = `${this.__API_ENDPOINT_COMPANY}${API_SNAPSHOTS_COMPANIES_PIT}/${identifier}/${value}`;
+
+    const response = await helper.apiSendRequest({
+      method: 'GET',
+      endpointUrl: endpoint,
+      headers,
+    });
+    return response['data'];
   }
 }
 

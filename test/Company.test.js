@@ -85,5 +85,18 @@ describe('Factiva News - ', () => {
         expect(err).to.be.instanceOf(RangeError);
       }
     });
+
+    it('should get company identifiers with a query', async () => {
+      const company = await Company.create(VALID_USER_KEY);
+      const identifiersResponse = await company.pointInTimeQuery(
+        TICKER_COMPANY_IDENTIFIER,
+        'BC1P',
+      );
+      expect(identifiersResponse.data.id).to.be.a('string');
+      expect(identifiersResponse.data.attributes).to.be.a('object');
+      expect(identifiersResponse.data.attributes.fcodes_dates).to.be.an(
+        'array',
+      );
+    }).timeout(0);
   });
 });
