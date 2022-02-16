@@ -1,5 +1,6 @@
 // eslint-disable-next-line import/no-extraneous-dependencies, import/no-unresolved
 import { core, helper } from '@factiva/core';
+import Company from './company';
 import { existsSync, mkdirSync, readFileSync, unlinkSync } from 'fs';
 import parser from 'papaparse';
 import { join } from 'path';
@@ -25,7 +26,7 @@ class Taxonomy {
    * @example
    * // Creating a taxonomy instance with an existing UserKey instance
    * myUser = UserKey('abcd1234abcd1234abcd1234abcd1234')
-   * myTaxonomy = await Taxonomy.creat(userKey = myUser)
+   * myTaxonomy = await Taxonomy.create(userKey = myUser)
    */
   static async create(userKey, requestInfo) {
     const taxonomy = new Taxonomy(userKey, requestInfo);
@@ -285,4 +286,4 @@ class Taxonomy {
   }
 }
 
-module.exports = Taxonomy;
+module.exports = { Taxonomy, Company };

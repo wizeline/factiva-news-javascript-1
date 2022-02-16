@@ -37,5 +37,9 @@
     "eslint-plugin-import": "^2.23.4",
     "eslint-plugin-prettier": "^3.4.0",
     "papaparse": "^5.3.1"
+  },
+  "engines": {
+    "npm": ">=6.0.0",
+    "node": ">=13.0.0"
   }
 }

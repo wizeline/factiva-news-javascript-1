@@ -5,7 +5,7 @@ const { expect } = chai;
 // eslint-disable-next-line import/no-extraneous-dependencies, import/no-unresolved
 const { helper } = require('@factiva/core');
 
-const Taxonomy = require('../lib/factiva/news/taxonomy');
+const { Taxonomy } = require('../lib/factiva/news/taxonomy');
 
 const VALID_USER_KEY = helper.loadEnvVariable('userKey');
 
@@ -36,7 +36,7 @@ describe('Factiva News - ', () => {
         ORELSZ: 'ORELSELPROM OOO',
       });
     }).timeout(0);
-    
+
     it('should request data for a company', async () => {
       const taxonomy = await Taxonomy.create(VALID_USER_KEY);
       const companyData = await taxonomy.getCompany('isin', {
