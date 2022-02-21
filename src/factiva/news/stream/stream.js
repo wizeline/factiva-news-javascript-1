@@ -66,6 +66,26 @@ class Stream {
     return subscriptions.map((subscription) => subscription.toString());
   }
 
+  getSubscriptionIdByIndex(index) {
+    const subscriptionKeys = Object.keys(this.subscriptions);
+    if (index > subscriptionKeys.length) {
+      throw RangeError('Index exceeds existing subscriptions');
+    }
+    return subscriptionKeys[index];
+  }
+
+  getSubscriptionByIndex(index) {
+    return this.subscriptions[this.getSubscriptionIdByIndex(index)];
+  }
+
+  getSubscriptionById(id) {
+    try {
+      return this.subscriptions[id];
+    } catch {
+      throw RangeError('The suscriptionId not exist on the stream');
+    }
+  }
+
   /**
    * Creates all the subscriptions that are available for a given stream
    * There a two cases in which this function is called:
