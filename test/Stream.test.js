@@ -93,7 +93,6 @@ describe('Factiva News - ', () => {
       });
 
       const streams = await stream.getAllStreams();
-      console.log(streams[0].toString());
       expect(Array.isArray(streams)).to.be.true;
     });
 

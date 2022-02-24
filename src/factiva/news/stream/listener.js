@@ -45,6 +45,7 @@ class Listener {
 
     this.streamUser = streamUser;
     this.subscriptionId = subscriptionId || subscriptionIdEnv;
+    this.messagesCount = 0;
   }
 
   /**
@@ -81,8 +82,7 @@ class Listener {
    */
   checkDocCountExceeded(maxDocumentsReceived) {
     // eslint-disable-next-line
-    const streamDisabledMsg = 
-      `OOPS! Looks like you've exceeded the maximum number of documents received for your account (${maxDocumentsReceived}).
+    const streamDisabledMsg = `OOPS! Looks like you've exceeded the maximum number of documents received for your account (${maxDocumentsReceived}).
       As such, no new documents will be added to your stream's queue.
       However, you won't lose access to any documents that have already been added to the queue.
       These will continue to be streamed to you.
@@ -148,7 +148,8 @@ class Listener {
   async listen({
     callback = defaultCallback,
     ackEnabled = false,
-    userErrorHandling = false,
+    maximumMessages = null,
+    batchSize = 10,
   }) {
     if (!this.projectId) {
       throw ReferenceError('projectId undefined');
@@ -156,50 +157,46 @@ class Listener {
     if (!this.subscriptionId) {
       throw ReferenceError('subscriptionId undefined');
     }
+    if (!maximumMessages) {
+      throw ReferenceError('undefined maximum messages to proceed');
+    }
 
-    const subscriptionFullName = `projects/${this.projectId}/subscriptions/${this.subscriptionId}`;
-    const onMessageTryCatch = (msg) => {
-      try {
-        callback(msg);
-        if (ackEnabled) msg.ack();
-      } catch (err) {
-        // eslint-disable-next-line
-        console.error(`Error from callback: ${err}\n`);
-        if (ackEnabled) msg.nack();
-        throw err;
-      }
+    const subscriptionPath = this.pubsubClient.subscriptionPath(
+      this.projectId,
+      this.subscriptionId,
+    );
+    const pubsubRequest = {
+      subscription: subscriptionPath,
+      maxMessages: batchSize,
     };
-
-    const onMessageUserHandling = (msg) => {
-      callback(msg, (err) => {
-        if (err) {
-          // eslint-disable-next-line
-          console.error(`Error from callback: ${err}`);
-          if (ackEnabled) msg.nack();
-          throw err;
-        } else if (ackEnabled) {
-          msg.ack();
-        }
-      });
-    };
-
-    const onMessage = userErrorHandling
-      ? onMessageUserHandling
-      : onMessageTryCatch;
-
-    // eslint-disable-next-line
-    this.pubsubSubscription =
-      this.pubsubClient.subscription(subscriptionFullName);
-
-    // eslint-disable-next-line
+    this.messagesCount = 0;
     console.log(
       `Listeners for subscriptions have been set up
       and await message arrival.`,
     );
-
-    const maxAllowedDocumentExtracts = await this.checkAccountStatus();
-    this.checkDocCountExceeded(maxAllowedDocumentExtracts);
-    this.pullMessagesFromPubsub(onMessage);
+    while (maximumMessages > 0 || this.messagesCount < maximumMessages) {
+      try {
+        maximumMessages = Math.min(
+          batchSize,
+          maximumMessages - this.messagesCount,
+        );
+        await this.pullMessagesFromPubsub(
+          pubsubRequest,
+          subscriptionPath,
+          callback,
+          ackEnabled,
+        );
+      } catch (e) {
+        console.log(
+          `Encountered a problem while trying to pull a message from a stream. Error is as follows: ${e}`,
+        );
+        console.log(
+          'Due to the previous error, system will pause 10 seconds. System will then attempt to pull the message from the stream again.',
+        );
+        helper.sleep(constants.PUBSUB_MESSAGES_WAIT_SPACING);
+        await this.setPubsubClient();
+      }
+    }
   }
 
   /**
@@ -207,29 +204,34 @@ class Listener {
    * @param {function} [callback] function which processes messages from Pubsub
    * @throws {ReferenceError} - when the pubsub subcription undefined
    */
-  pullMessagesFromPubsub(onMessage) {
-    if (!this.pubsubSubscription) {
-      throw ReferenceError('pubsub subcription undefined');
-    }
+  async pullMessagesFromPubsub(
+    pubsubRequest,
+    formattedSubscription,
+    callback,
+    ackEnabled,
+  ) {
+    const [response] = await this.pubsubClient.pull(pubsubRequest);
 
-    this.pubsubSubscription
-      .get()
-      .then((data) => {
-        const pubsubSub = data[FIRST_OBJECT];
-        pubsubSub.on('message', onMessage);
-        pubsubSub.on('error', (subErr) => {
-          // eslint-disable-next-line
-          console.error(`On Subscription Error: ${subErr}`);
-          pubsubSub.removeListener('message', onMessage);
-          pubsubSub.on('message', onMessage);
-        });
-      })
-      .catch((err) => {
-        // eslint-disable-next-line
-        console.error(
-          `Error retrieving subscription from Google PubSub: ${err}`,
-        );
-      });
+    for (const message of response.receivedMessages) {
+      const formatMessage = JSON.parse(message.message.data);
+      const messageInfo = formatMessage['data'][0]['id'];
+      console.log(`Received news message with ID: ${messageInfo}`);
+      const newsMessage = formatMessage['data'][0]['attributes'];
+
+      const callbackResult = callback(newsMessage, this.subscriptionId);
+      if (ackEnabled) {
+        const ackRequest = {
+          subscription: formattedSubscription,
+          ackIds: [formatMessage.ack_id],
+        };
+        this.pubsubClient.acknowledge(ackRequest);
+      }
+      this.messagesCount += 1;
+      if (!callbackResult) {
+        return;
+      }
+      console.log(`Callback returns: ${callbackResult}`);
+    }
   }
 
   /**
