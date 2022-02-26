@@ -169,23 +169,24 @@ class Listener {
       subscription: subscriptionPath,
       maxMessages: batchSize,
     };
-    this.messagesCount = 0;
     console.log(
       `Listeners for subscriptions have been set up
       and await message arrival.`,
     );
-    while (maximumMessages > 0 || this.messagesCount < maximumMessages) {
+    while (!maximumMessages || this.messagesCount < maximumMessages) {
       try {
-        maximumMessages = Math.min(
-          batchSize,
-          maximumMessages - this.messagesCount,
-        );
-        await this.pullMessagesFromPubsub(
-          pubsubRequest,
-          subscriptionPath,
-          callback,
-          ackEnabled,
-        );
+        if (maximumMessages) {
+          maximumMessages = Math.min(
+            batchSize,
+            maximumMessages - this.messagesCount,
+          );
+          await this.pullMessagesFromPubsub(
+            pubsubRequest,
+            subscriptionPath,
+            callback,
+            ackEnabled,
+          );
+        }
       } catch (e) {
         console.log(
           `Encountered a problem while trying to pull a message from a stream. Error is as follows: ${e}`,
@@ -193,7 +194,7 @@ class Listener {
         console.log(
           'Due to the previous error, system will pause 10 seconds. System will then attempt to pull the message from the stream again.',
         );
-        helper.sleep(constants.PUBSUB_MESSAGES_WAIT_SPACING);
+        await helper.sleep(constants.PUBSUB_MESSAGES_WAIT_SPACING * 1000);
         await this.setPubsubClient();
       }
     }

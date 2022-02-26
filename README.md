@@ -23,6 +23,13 @@ Example of importing modules:
   const { Snapshot, SnapshotQuery } = require('../lib/factiva/news/snapshot');
 ```
 
+## Environment vars
+
+``` bash
+export GOOGLE_APPLICATION_CREDENTIALS="/Users/credentials.json"
+export BIGQUERY_DATA_SET=dataset
+export BIGQUERY_TABLE=table
+```
 ## Snapshots
 
 - Explain

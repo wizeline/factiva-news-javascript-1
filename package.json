@@ -33,6 +33,7 @@
     "prettier": "^2.3.1"
   },
   "dependencies": {
+    "@google-cloud/bigquery": "^5.11.0",
     "core-js": "^3.15.0",
     "eslint-plugin-import": "^2.23.4",
     "eslint-plugin-prettier": "^3.4.0",

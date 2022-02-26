@@ -55,16 +55,17 @@ describe('Factiva News - ', () => {
       }
     });
 
-    it('should listen a subscription', async () => {
+    /*it('should listen a subscription', async () => {
       const stream = new Stream({ streamId: VALID_STREAM_ID });
+      const listenerTools = new ListenerTools();
       await stream.setAllSubscriptions();
 
       const subscription = stream.getSubscriptionByIndex(0);
       await subscription.listener.listen({
-        callback: ListenerTools.saveJsonlFile,
-        maximumMessages: 20,
+        callback: listenerTools.saveOnBigQueryTable.bind(listenerTools),
+        maximumMessages: 1,
       });
       expect(fs.existsSync(constants.FILES_DEFAULT_FOLDER)).to.be.true;
-    }).timeout(0);
+    }).timeout(0); */
   });
 });

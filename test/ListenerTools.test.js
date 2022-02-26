@@ -26,14 +26,16 @@ describe('Factiva News - ', () => {
   before(() => {
     helper.createPathIfNotExist(constants.FILES_DEFAULT_FOLDER);
   });
+
   after(() => {
     fs.rmdirSync(constants.FILES_DEFAULT_FOLDER, { recursive: true });
   });
 
   describe('Listener Tools module', () => {
     it('should write a line in a Jsonl file', async () => {
+      const listenerTools = new ListenerTools();
       for (let i = 0; i < 5; i++) {
-        await ListenerTools.writeJsonlLine('demo', 'default', 'loremIpsum', {
+        await listenerTools.writeJsonlLine('demo', 'default', 'loremIpsum', {
           title: `Demo message ${i}`,
           author: 'factiva news',
           date: new Date(),
@@ -43,7 +45,8 @@ describe('Factiva News - ', () => {
       expect(true).to.be.true;
     });
     it('should create and add new line into a Jsonl file', async () => {
-      const result = await ListenerTools.saveJsonlFile(
+      const listenerTools = new ListenerTools();
+      const result = await listenerTools.saveJsonlFile(
         BASIC_ADD_MESSAGE,
         BASIC_SUBSCRIPTION_ID,
       );
@@ -56,7 +59,8 @@ describe('Factiva News - ', () => {
     });
 
     it('should create a log file on error', async () => {
-      const result = await ListenerTools.saveJsonlFile(
+      const listenerTools = new ListenerTools();
+      const result = await listenerTools.saveJsonlFile(
         BASIC_ERROR_MESSAGE,
         BASIC_SUBSCRIPTION_ID,
       );

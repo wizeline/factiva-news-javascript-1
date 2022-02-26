@@ -3,5 +3,8 @@
   "SnapshotId": "",
   "UpdateId": "",
   "StreamId": "",
-  "SubscriptionId": ""
+  "SubscriptionId": "",
+  "GOOGLE_APPLICATION_CREDENTIALS": "",
+  "BqDataset": "",
+  "BqTable": ""
 }
