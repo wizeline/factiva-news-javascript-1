@@ -24,12 +24,24 @@ Example of importing modules:
 ```
 
 ## Environment vars
+To be able to use Stream Listener options, add the following environment vars depending on your selected listener tool
+
+To use BigQuery Stream Listener
 
 ``` bash
 export GOOGLE_APPLICATION_CREDENTIALS="/Users/credentials.json"
 export BIGQUERY_DATA_SET=dataset
 export BIGQUERY_TABLE=table
 ```
+
+To use MongoDB Stream Listener
+
+``` bash
+export MONGODB_CONNECTION_STRING=mongodb://localhost:27017
+export MONGODB_DATABASE_NAME=factiva-news
+export MONGODB_COLLECTION_NAME=stream-listener  
+```
+
 ## Snapshots
 
 - Explain

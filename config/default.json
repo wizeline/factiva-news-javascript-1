@@ -6,5 +6,8 @@
   "SubscriptionId": "",
   "GOOGLE_APPLICATION_CREDENTIALS": "",
   "BqDataset": "",
-  "BqTable": ""
+  "BqTable": "",
+  "mongodbURI": "",
+  "mongodbDatabaseName": "",
+  "mongodbCollectionName": ""
 }

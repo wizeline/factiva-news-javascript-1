@@ -3,6 +3,7 @@ import { core, helper } from '@factiva/core';
 import { writeFile } from 'fs';
 import { BigQuery } from '@google-cloud/bigquery';
 import { formatMessageToResponseSchema } from './bq_schemas';
+import { MongoClient } from 'mongodb';
 
 const { constants } = core;
 class ListenerTools {
@@ -166,6 +167,78 @@ class ListenerTools {
     }
     console.log(this.logLine);
     return retVal;
+  }
+
+  /**
+   * Listener to save response into mongoDB
+   * @param {string} message - Message to be stored
+   * @param {string} subscriptionId - Suscription id from response
+   * @returns {boolean} Status from the process
+   */
+  async saveOnMongoDB(message, subscriptionId) {
+    process.stdout.write('\n[ACTIVITY] Receiving messages (SYNC)...\n[0]');
+    helper.createPathIfNotExist(constants.FILES_DEFAULT_FOLDER);
+    const uri = helper.loadEnvVariable('mongodbURI');
+    const databaseName = helper.loadEnvVariable('mongodbDatabaseName');
+    const collectionName = helper.loadEnvVariable('mongodbCollectionName');
+
+    const client = new MongoClient(uri);
+    try {
+      await client.connect();
+      const database = client.db(databaseName);
+      const collection = database.collection(collectionName);
+
+      process.stdout.write('\n[ACTIVITY] Receiving messages (SYNC)...\n[0]');
+      helper.createPathIfNotExist(constants.FILES_DEFAULT_FOLDER);
+
+      if (Object.keys(message).includes('action')) {
+        let formatMessage = helper.formatTimestamps(message);
+        formatMessage = helper.formatMultivalues(formatMessage);
+        const currentAction = formatMessage['action'];
+
+        if (constants.ALLOWED_ACTIONS.includes(currentAction)) {
+          this.logLine += constants.ACTION_CONSOLE_INDICATOR[currentAction];
+          await collection.insertOne(formatMessage);
+        } else {
+          this.logLine +=
+            constants.ACTION_CONSOLE_INDICATOR[constants.ERR_ACTION];
+          errorMessage = `${Date.now()}\tERR\tInvalidAction\t${JSON.stringify(
+            formatMessage,
+          )}\n`;
+          await writeFile(errorFile, errorMessage, { flag: 'a+' }, (err) => {
+            if (err) {
+              throw err;
+            }
+          });
+        }
+        this.counter += 1;
+        if (this.counter % 100 == 0) {
+          process.stdout.write(`\n[${this.counter}]`);
+        }
+      } else {
+        this.logLine +=
+          constants.ACTION_CONSOLE_INDICATOR[constants.ERR_ACTION];
+        errorMessage = `${Date.now()}\tERR\tInvalidMessage\t${JSON.stringify(
+          message,
+        )}\n`;
+        await writeFile(errorFile, errorMessage, { flag: 'a+' }, (err) => {
+          if (err) {
+            throw err;
+          }
+        });
+        return false;
+      }
+    } catch (err) {
+      await writeFile(errorFile, err, { flag: 'a+' }, (err) => {
+        if (err) {
+          throw err;
+        }
+      });
+    } finally {
+      await client.close();
+      console.log(this.logLine);
+    }
+    return true;
   }
 }
 
