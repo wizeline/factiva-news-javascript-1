@@ -1,9 +1,8 @@
-// eslint-disable-next-line
 import { core, helper } from '@factiva/core';
-
-const { constants, StreamUser } = core;
-// eslint-disable-next-line
-const FIRST_OBJECT = 0;
+const { constants, StreamUser, FactivaLogger } = core;
+const {
+  LOGGER_LEVELS: { INFO, DEBUG, ERROR, WARN },
+} = constants;
 
 const defaultCallback = (message) => {
   /* Call to default callback function. */
@@ -27,19 +26,23 @@ class Listener {
    */
   constructor({ subscriptionId = null, streamUser = null }) {
     let subscriptionIdEnv;
+    this.logger = new FactivaLogger(__filename);
     if (!subscriptionId) {
       try {
         subscriptionIdEnv = helper.loadEnvironmentValue(
           'FACTIVA_STREAM_SUBSCRIPTION_ID',
         );
       } catch (e) {
+        this.logger.log(ERROR, 'No subscription specified');
         throw constants.UNDEFINED_SUBSCRIPTION_ERROR;
       }
     }
     if (!streamUser) {
+      this.logger.log(ERROR, 'Undefined streamUser');
       throw ReferenceError('Undefined streamUser');
     }
     if (!(streamUser instanceof StreamUser)) {
+      this.logger.log(ERROR, 'streamUser is not instance of StreamUser');
       throw ReferenceError('streamUser is not instance of StreamUser');
     }
 
@@ -55,6 +58,7 @@ class Listener {
    */
   subscriptionIdToStreamId() {
     if (!this.subscriptionId) {
+      this.logger.log(ERROR, 'subscriptionId undefined');
       throw ReferenceError('subscriptionId undefined');
     }
     const subscriptionId = this.subscriptionId.split('-');
@@ -91,7 +95,7 @@ class Listener {
       .then((isDisabled) => {
         if (isDisabled) {
           // eslint-disable-next-line
-          console.error(streamDisabledMsg);
+          this.logger.log(WARN, streamDisabledMsg);
         }
         setTimeout(
           this.checkDocCountExceeded.bind(this),
@@ -101,7 +105,7 @@ class Listener {
       })
       .catch((err) => {
         // eslint-disable-next-line
-        console.error(err);
+        this.logger.log(ERROR, err);
         setTimeout(
           this.checkDocCountExceeded.bind(this),
           constants.CHECK_EXCEEDED_WAIT_SPACING,
@@ -151,13 +155,17 @@ class Listener {
     maximumMessages = null,
     batchSize = 10,
   }) {
+    this.logger.log(INFO, 'Starting to listen messages');
     if (!this.projectId) {
+      this.logger.log(ERROR, 'projectId undefined');
       throw ReferenceError('projectId undefined');
     }
     if (!this.subscriptionId) {
+      this.logger.log(ERROR, 'subscriptionId undefined');
       throw ReferenceError('subscriptionId undefined');
     }
     if (!maximumMessages) {
+      this.logger.log(ERROR, 'undefined maximum messages to proceed');
       throw ReferenceError('undefined maximum messages to proceed');
     }
 
@@ -169,7 +177,8 @@ class Listener {
       subscription: subscriptionPath,
       maxMessages: batchSize,
     };
-    console.log(
+    this.logger.log(
+      DEBUG,
       `Listeners for subscriptions have been set up
       and await message arrival.`,
     );
@@ -188,10 +197,12 @@ class Listener {
           );
         }
       } catch (e) {
-        console.log(
+        this.logger.log(
+          WARN,
           `Encountered a problem while trying to pull a message from a stream. Error is as follows: ${e}`,
         );
-        console.log(
+        this.logger.log(
+          WARN,
           'Due to the previous error, system will pause 10 seconds. System will then attempt to pull the message from the stream again.',
         );
         await helper.sleep(constants.PUBSUB_MESSAGES_WAIT_SPACING * 1000);
@@ -216,7 +227,7 @@ class Listener {
     for (const message of response.receivedMessages) {
       const formatMessage = JSON.parse(message.message.data);
       const messageInfo = formatMessage['data'][0]['id'];
-      console.log(`Received news message with ID: ${messageInfo}`);
+      this.logger.log(INFO, `Received news message with ID: ${messageInfo}`);
       const newsMessage = formatMessage['data'][0]['attributes'];
 
       const callbackResult = callback(newsMessage, this.subscriptionId);
@@ -231,7 +242,7 @@ class Listener {
       if (!callbackResult) {
         return;
       }
-      console.log(`Callback returns: ${callbackResult}`);
+      this.logger.log(DEBUG, `Callback returns: ${callbackResult}`);
     }
   }
 

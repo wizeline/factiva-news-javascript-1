@@ -1,6 +1,6 @@
 import { core, helper } from '@factiva/core';
 
-const { UserKey, constants } = core;
+const { UserKey, constants, FactivaLogger } = core;
 const {
   API_COMPANIES_IDENTIFIER_TYPE,
   API_HOST,
@@ -11,6 +11,9 @@ const {
   TICKER_COMPANY_IDENTIFIER,
 } = constants;
 
+const {
+  LOGGER_LEVELS: { INFO, DEBUG, ERROR, WARN },
+} = constants;
 class Company {
   /**
    * Class that represents the company available within the Snapshots API
@@ -48,6 +51,7 @@ class Company {
    */
   constructor(userKey) {
     this.userKey = new UserKey(userKey, true);
+    this.logger = new FactivaLogger(__filename);
   }
 
   __API_ENDPOINT_TAXONOMY = `${API_HOST}${API_SNAPSHOTS_TAXONOMY_BASEPATH}`;
@@ -69,6 +73,7 @@ class Company {
    * @throws {RangeError} - if the identifier requested is not valid
    */
   validatePointInTimeRequest(indetifier) {
+    this.logger.log(DEBUG, 'Validating point in time');
     if (!this.userKey.enabledCompanyIdentifiers.length) {
       throw new RangeError('User is not allowed to perform this operation');
     }
@@ -107,6 +112,10 @@ class Company {
     toSavePath = null,
     addTimestamp = false,
   ) {
+    this.logger.log(
+      INFO,
+      'Dowloading file with the historical and current identifiers',
+    );
     this.validatePointInTimeRequest(identifier);
     const localPah = toSavePath || DOWNLOAD_DEFAULT_FOLDER;
     const headers = this.userKey.getAuthenticationHeaders();
@@ -131,6 +140,7 @@ class Company {
    * @returns {object} Factiva code and date ranges from a company
    */
   async pointInTimeQuery(identifier, value) {
+    this.logger.log(INFO, 'Dowloading Factiva code and date ranges');
     this.validatePointInTimeRequest(identifier);
     const headers = this.userKey.getAuthenticationHeaders();
     const endpoint = `${this.__API_ENDPOINT_COMPANY}${API_SNAPSHOTS_COMPANIES_PIT}/${identifier}/${value}`;

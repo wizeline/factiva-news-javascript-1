@@ -8,16 +8,14 @@ const { constants } = core;
 
 const VALID_STREAM_ID = helper.loadEnvVariable('StreamId');
 const VALID_SUBSCRIPTION_ID = helper.loadEnvVariable('SubscriptionId');
-const VALID_WHERE_STATEMENT =
-  "publication_datetime >= '2022-01-01 00:00:00' AND LOWER(language_code)='en' AND UPPER(source_code) = 'DJDN'";
 
 describe('Factiva News - ', () => {
   before(() => {
-    helper.createPathIfNotExist(constants.FILES_DEFAULT_FOLDER);
+    helper.createPathIfNotExist(constants.LISTENER_FILES_DEFAULT_FOLDER);
   });
 
   after(() => {
-    fs.rmdirSync(constants.FILES_DEFAULT_FOLDER, { recursive: true });
+    fs.rmdirSync(constants.LISTENER_FILES_DEFAULT_FOLDER, { recursive: true });
   });
 
   describe('Stream Listener Module - ', () => {
@@ -55,17 +53,17 @@ describe('Factiva News - ', () => {
       }
     });
 
-    /* it('should listen a subscription', async () => {
+    it('should listen a subscription', async () => {
       const stream = new Stream({ streamId: VALID_STREAM_ID });
       const listenerTools = new ListenerTools();
       await stream.setAllSubscriptions();
 
       const subscription = stream.getSubscriptionByIndex(0);
       await subscription.listener.listen({
-        callback: listenerTools.saveOnMongoDB.bind(listenerTools),
+        callback: listenerTools.saveJsonlFile.bind(listenerTools),
         maximumMessages: 10,
       });
-      expect(fs.existsSync(constants.FILES_DEFAULT_FOLDER)).to.be.true;
-    }).timeout(0); */
+      expect(fs.existsSync(constants.LISTENER_FILES_DEFAULT_FOLDER)).to.be.true;
+    }).timeout(0);
   });
 });

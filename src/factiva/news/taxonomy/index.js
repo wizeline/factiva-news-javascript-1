@@ -5,8 +5,10 @@ import { existsSync, mkdirSync, readFileSync, unlinkSync } from 'fs';
 import parser from 'papaparse';
 import { join } from 'path';
 const { constants } = core;
-const { UserKey } = core;
-
+const { UserKey, FactivaLogger } = core;
+const {
+  LOGGER_LEVELS: { INFO },
+} = constants;
 /** Class representing the taxonomy available within the Snapshots API */
 class Taxonomy {
   /**
@@ -52,6 +54,7 @@ class Taxonomy {
     this.categories = [];
     this.userKey = new UserKey(userKey);
     this.identifiers = [];
+    this.logger = new FactivaLogger(__filename);
   }
 
   /**
@@ -73,6 +76,7 @@ class Taxonomy {
    * // be accessed as is.
    */
   async getCategories() {
+    this.logger.log(INFO, 'Getting taxonomy categories');
     const headers = { 'user-key': this.userKey.key };
     const endpointUrl = `${constants.API_HOST}${constants.API_SNAPSHOTS_TAXONOMY_BASEPATH}`;
     const response = await helper.apiSendRequest({
@@ -93,6 +97,7 @@ class Taxonomy {
    * // be accessed as is.
    */
   async getIdentifiers() {
+    this.logger.log(INFO, 'Getting taxonomy identifiers');
     const headers = this.userKey.getAuthenticationHeaders();
     const endpointUrl = `${constants.API_HOST}${constants.API_SNAPSHOTS_COMPANY_IDENTIFIERS_BASEPATH}`;
     const response = await helper.apiSendRequest({
@@ -118,6 +123,7 @@ class Taxonomy {
    * industryCodes = taxonomy.getCategoryCodes('industries')
    */
   async getCategoryCodes(category, saveFile = false) {
+    this.logger.log(INFO, 'Getting taxonomy categories codes');
     helper.validateType(category, 'string');
 
     const responseFormat = 'csv';
@@ -270,6 +276,10 @@ class Taxonomy {
    */
   // eslint-disable-next-line consistent-return
   async getCompany(codeType, { companyCode, companiesCodes }) {
+    this.logger.log(
+      INFO,
+      `Getting company: ${codeType} - ${companyCode}${companiesCodes}`,
+    );
     if (companyCode && companiesCodes) {
       throw new Error(
         'company and companies paramenters cannot be set simultanously',

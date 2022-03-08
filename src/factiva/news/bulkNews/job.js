@@ -4,8 +4,10 @@ import { join } from 'path';
 // eslint-disable-next-line
 import { core, helper } from '@factiva/core';
 
-const { constants } = core;
-const { UserKey } = core;
+const { constants, UserKey, FactivaLogger } = core;
+const {
+  LOGGER_LEVELS: { INFO, DEBUG, ERROR },
+} = constants;
 
 /**
  * Base class to represent the operations that can be done using Factiva
@@ -53,6 +55,7 @@ class BulkNewsJob {
     this.submittedDatetime = Date.now();
     this.link = '';
     this.userKey = new UserKey(userKey);
+    this.logger = new FactivaLogger('/bulkNews-job.js');
   }
 
   /**
@@ -120,6 +123,7 @@ class BulkNewsJob {
    * @throws {Error} - when the API reponse does not have a 201 status code.
    */
   async submitJob(payload, useLatestApiVersion = false) {
+    this.logger.log(DEBUG, `Submitting job: ${payload}`);
     this.submittedDatetime = Date.now();
     const headers = {
       'user-key': this.userKey.key,
@@ -150,10 +154,11 @@ class BulkNewsJob {
    * If the job has been completed, obtains the results of the job.
    */
   async getJobResults() {
+    this.logger.log(DEBUG, `Getting job results`);
     if (this.link === '') {
-      throw new ReferenceError(
-        'Job has not yet been submitted or Job ID was not set',
-      );
+      const msg = 'Job has not yet been submitted or Job ID was not set';
+      this.logger.log(ERROR, msg);
+      throw new ReferenceError(msg);
     }
 
     const headers = {
@@ -170,15 +175,18 @@ class BulkNewsJob {
     this.jobState = response.data.data.attributes.current_state;
 
     if (!constants.API_JOB_EXPECTED_STATES.includes(this.jobState)) {
-      throw new RangeError(`Unexpected job state: ${this.jobState}`);
+      const msg = `Unexpected job state: ${this.jobState}`;
+      this.logger.log(ERROR, msg);
+      throw new RangeError(msg);
     }
 
     if (this.jobState === constants.API_JOB_FAILED_STATE) {
       const errors = response.data.errors
         .map((error) => `${error.title}: ${error.detail}`)
         .join();
-
-      throw new Error(`Job failed with error: ${errors}`);
+      const msg = `Job failed with error: ${errors}`;
+      this.logger.log(ERROR, msg);
+      throw new Error(msg);
     }
 
     if (this.jobState === constants.API_JOB_DONE_STATE) {
@@ -195,10 +203,11 @@ class BulkNewsJob {
    * @throws {Error} - when the returned state is a failed state
    */
   async processJob(payload = undefined, useLatestApiVersion = false) {
+    this.logger.log(INFO, `Processing job: ${payload}`);
     await this.submitJob(payload, useLatestApiVersion);
     await this.getJobResults();
     // eslint-disable-next-line no-console
-    console.log('Job link: ', this.link);
+    this.logger.log(DEGUB, `Job link:${this.link}`);
 
     while (this.jobState !== constants.API_JOB_DONE_STATE) {
       // eslint-disable-next-line no-await-in-loop
@@ -216,8 +225,8 @@ class BulkNewsJob {
    * @param {string} downloadPath - path where to store the downloaded file
    */
   async downloadFile(endpointUrl, downloadPath) {
+    this.logger.log(INFO, `Dowloading File: ${endpointUrl}`);
     const headers = { 'user-key': this.userKey.key, responseType: 'stream' };
-
     const response = await helper.apiSendRequest({
       method: 'GET',
       endpointUrl,
@@ -242,6 +251,7 @@ class BulkNewsJob {
    * @throws {ReferenceError} - when there are no files available to download
    */
   async downloadJobFiles(downloadPath) {
+    this.logger.log(INFO, 'Dowloading Job files');
     if (this.files.length === 0) {
       throw new ReferenceError('No files available for download');
     }
@@ -274,10 +284,11 @@ class BulkNewsJob {
    * @returns {Promise<Object>} List of explain job samples
    */
   async getJobSamples(numSamples) {
+    this.logger.log(INFO, `Getting job samples: ${numSamples}`);
     const headers = { 'user-key': this.userKey.key };
     const qsParams = { num_samples: numSamples };
     const endpointUrl = `${this.getEndpointUrl()}/${this.jobId}`;
-    console.log('Samples link: ', endpointUrl);
+    this.logger.log(DEBUG, `Samples link: ${endpointUrl}`);
 
     const response = await helper.apiSendRequest({
       method: 'GET',

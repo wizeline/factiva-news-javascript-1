@@ -24,11 +24,11 @@ const BASIC_SUBSCRIPTION_ID = 'aaaa-bbbb-cccc-dddd-eeeee';
 
 describe('Factiva News - ', () => {
   before(() => {
-    helper.createPathIfNotExist(constants.FILES_DEFAULT_FOLDER);
+    helper.createPathIfNotExist(constants.LISTENER_FILES_DEFAULT_FOLDER);
   });
 
   after(() => {
-    fs.rmdirSync(constants.FILES_DEFAULT_FOLDER, { recursive: true });
+    fs.rmdirSync(constants.LISTENER_FILES_DEFAULT_FOLDER, { recursive: true });
   });
 
   describe('Listener Tools module', () => {
@@ -53,7 +53,7 @@ describe('Factiva News - ', () => {
       const split = BASIC_SUBSCRIPTION_ID.split('-');
       const streamShortId = split[split.length - 3];
       const fileResult = `${streamShortId}_add_${helper.getCurrentDate()}.jsonl`;
-      const filePath = path.join(constants.FILES_DEFAULT_FOLDER, fileResult);
+      const filePath = path.join(constants.LISTENER_FILES_DEFAULT_FOLDER, fileResult);
       expect(result).to.be.true;
       expect(fs.existsSync(filePath)).to.be.true;
     });
@@ -64,7 +64,7 @@ describe('Factiva News - ', () => {
         BASIC_ERROR_MESSAGE,
         BASIC_SUBSCRIPTION_ID,
       );
-      const filePath = path.join(constants.FILES_DEFAULT_FOLDER, 'errors.log');
+      const filePath = path.join(constants.LISTENER_FILES_DEFAULT_FOLDER, 'errors.log');
       expect(result).to.be.true;
       expect(fs.existsSync(filePath)).to.be.true;
     });

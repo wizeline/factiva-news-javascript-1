@@ -4,8 +4,11 @@ import { writeFile } from 'fs';
 import { BigQuery } from '@google-cloud/bigquery';
 import { formatMessageToResponseSchema } from './bq_schemas';
 import { MongoClient } from 'mongodb';
+const { constants, FactivaLogger } = core;
+const {
+  LOGGER_LEVELS: { INFO, ERROR },
+} = constants;
 
-const { constants } = core;
 class ListenerTools {
   constructor() {
     this.tableId = null;
@@ -13,6 +16,7 @@ class ListenerTools {
     this.counter = 0;
     this.bqClient = null;
     this.logLine = '';
+    this.logger = new FactivaLogger('/tools-listener.js');
   }
 
   /**
@@ -24,7 +28,10 @@ class ListenerTools {
    */
   async writeJsonlLine(filePrefix, action, fileSuffix, message) {
     const outFilename = `${filePrefix}_${action}_${fileSuffix}.jsonl`;
-    const outFilepath = join(constants.FILES_DEFAULT_FOLDER, outFilename);
+    const outFilepath = join(
+      constants.LISTENER_FILES_DEFAULT_FOLDER,
+      outFilename,
+    );
     const newLine = `${JSON.stringify(message)}\n`;
     await writeFile(outFilepath, newLine, { flag: 'a+' }, (err) => {
       if (err) {
@@ -40,14 +47,20 @@ class ListenerTools {
    * @returns {boolean} Status from the process
    */
   async saveJsonlFile(message, subscriptionId) {
-    const errorFile = join(constants.FILES_DEFAULT_FOLDER, 'errors.log');
+    const errorFile = join(
+      constants.LISTENER_FILES_DEFAULT_FOLDER,
+      'errors.log',
+    );
     let errorMessage = '';
     const subscriptionIdParsed = subscriptionId.split('-');
     const streamShortId = subscriptionIdParsed[subscriptionIdParsed.length - 3];
     const currentHour = helper.getCurrentDate();
 
-    process.stdout.write('\n[ACTIVITY] Receiving messages (SYNC)...\n[0]');
-    helper.createPathIfNotExist(constants.FILES_DEFAULT_FOLDER);
+    this.logger.log(
+      INFO,
+      `[ACTIVITY] Receiving messages (SYNC)[${this.counter}]`,
+    );
+    helper.createPathIfNotExist(constants.LISTENER_FILES_DEFAULT_FOLDER);
 
     if (Object.keys(message).includes('action')) {
       let formatMessage = helper.formatTimestamps(message);
@@ -76,7 +89,7 @@ class ListenerTools {
       }
       this.counter += 1;
       if (this.counter % 100 == 0) {
-        process.stdout.write(`\n[${this.counter}]`);
+        this.logger.log(INFO, `[${this.counter}]`);
       }
     } else {
       this.logLine += constants.ACTION_CONSOLE_INDICATOR[constants.ERR_ACTION];
@@ -116,8 +129,8 @@ class ListenerTools {
     let msgAn = '';
     this.verifyBigQueryTable();
     this.bqClient = new BigQuery();
-    process.stdout.write('\n[DB] Receiving messages (SYNC)...\n[0]');
-    helper.createPathIfNotExist(constants.FILES_DEFAULT_FOLDER);
+    this.logger.log(INFO, '[DB] Receiving messages (SYNC)');
+    helper.createPathIfNotExist(constants.LISTENER_FILES_DEFAULT_FOLDER);
 
     try {
       if (Object.keys(message).includes('action')) {
@@ -142,14 +155,15 @@ class ListenerTools {
           this.logLine = '';
         }
       } else {
-        process.stdout.write(
+        this.logger.log(
+          ERROR,
           constants.ACTION_CONSOLE_INDICATOR[constants.ERR_ACTION],
         );
       }
     } catch (e) {
       this.counter += 1;
       this.logLine = '#';
-      const logPath = constants.FILES_DEFAULT_FOLDER;
+      const logPath = constants.LISTENER_FILES_DEFAULT_FOLDER;
       const fileName =
         msgAn !== ''
           ? join(logPath, `${msgAn}.json`)
@@ -176,8 +190,8 @@ class ListenerTools {
    * @returns {boolean} Status from the process
    */
   async saveOnMongoDB(message, subscriptionId) {
-    process.stdout.write('\n[ACTIVITY] Receiving messages (SYNC)...\n[0]');
-    helper.createPathIfNotExist(constants.FILES_DEFAULT_FOLDER);
+    this.logger.log(INFO, '[ACTIVITY] Receiving messages (SYNC)');
+    helper.createPathIfNotExist(constants.LISTENER_FILES_DEFAULT_FOLDER);
     const uri = helper.loadEnvVariable('mongodbURI');
     const databaseName = helper.loadEnvVariable('mongodbDatabaseName');
     const collectionName = helper.loadEnvVariable('mongodbCollectionName');
@@ -188,8 +202,7 @@ class ListenerTools {
       const database = client.db(databaseName);
       const collection = database.collection(collectionName);
 
-      process.stdout.write('\n[ACTIVITY] Receiving messages (SYNC)...\n[0]');
-      helper.createPathIfNotExist(constants.FILES_DEFAULT_FOLDER);
+      helper.createPathIfNotExist(constants.LISTENER_FILES_DEFAULT_FOLDER);
 
       if (Object.keys(message).includes('action')) {
         let formatMessage = helper.formatTimestamps(message);
@@ -213,7 +226,7 @@ class ListenerTools {
         }
         this.counter += 1;
         if (this.counter % 100 == 0) {
-          process.stdout.write(`\n[${this.counter}]`);
+          this.logger.log(INFO, `[${this.counter}]`);
         }
       } else {
         this.logLine +=
