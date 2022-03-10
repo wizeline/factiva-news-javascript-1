@@ -2,7 +2,7 @@
   "name": "@factiva/news",
   "version": "1.0.0",
   "description": "Factiva Javascript Library for Dow Jones Users",
-  "main": "index.js",
+  "main": "lib/factiva/index.js",
   "directories": {
     "test": "test"
   },

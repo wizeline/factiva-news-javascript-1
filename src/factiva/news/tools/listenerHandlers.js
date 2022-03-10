@@ -211,7 +211,7 @@ class MongoDBHandler {
       helper.createPathIfNotExist(constants.LISTENER_FILES_DEFAULT_FOLDER);
 
       if (Object.keys(message).includes('action')) {
-        let formatMessage = helper.formatTimestamps(message);
+        let formatMessage = helper.formatTimestampsMongoDB(message);
         formatMessage = helper.formatMultivalues(formatMessage);
         const currentAction = formatMessage['action'];
 
@@ -234,14 +234,14 @@ class MongoDBHandler {
       } else {
         this.logLine +=
           constants.ACTION_CONSOLE_INDICATOR[constants.ERR_ACTION];
-        errorMessage = `${Date.now()}\tERR\tInvalidMessage\t${JSON.stringify(
+        errorMessage = `${Date.now()}\tERROR\tInvalidMessage\t${JSON.stringify(
           message,
         )}\n`;
         await writeDefaultFile(errorFile, errorMessage);
         return retVal;
       }
     } catch (err) {
-      await writeDefaultFile(errorFile, err);
+      await writeDefaultFile(errorFile, `${Date.now()}\tERROR\t${err}\n`);
     }
     console.log(this.logLine);
     return retVal;

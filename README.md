@@ -67,7 +67,7 @@ Files directory. If are not set, the project root directory path will be used
 
 ``` Bash
 export DOWNLOAD_FILES_DIR=/users/dowloadFiles
-export LISTENER_FILES_DIR=/users/listenerFiles
+export STREAM_FILES_DIR=/users/listenerFiles
 export LOG_FILES_DIR=/users/logFiles
 ```
 

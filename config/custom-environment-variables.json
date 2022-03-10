@@ -21,6 +21,6 @@
     }
   },
   "dowloadFilesDir": "DOWNLOAD_FILES_DIR",
-  "listenerFilesDir": "LISTENER_FILES_DIR",
+  "listenerFilesDir": "STREAM_FILES_DIR",
   "logFilesDir": "LOG_FILES_DIR"
 }
