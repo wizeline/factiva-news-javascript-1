@@ -9,5 +9,18 @@
   "BqTable": "",
   "mongodbURI": "",
   "mongodbDatabaseName": "",
-  "mongodbCollectionName": ""
+  "mongodbCollectionName": "",
+  "proxy": {
+    "use": false,
+    "protocol": "https",
+    "host": "localhost",
+    "port": "80",
+    "auth": {
+      "username": "",
+      "password": ""
+    }
+  },
+  "dowloadFilesDir": "",
+  "listenerFilesDir": "",
+  "logFilesDir": ""
 }

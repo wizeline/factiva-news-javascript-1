@@ -6,17 +6,24 @@ import { formatMessageToResponseSchema } from './bq_schemas';
 import { MongoClient } from 'mongodb';
 const { constants, FactivaLogger } = core;
 const {
-  LOGGER_LEVELS: { INFO, ERROR },
+  LOGGER_LEVELS: { INFO, ERROR, WARN },
 } = constants;
 
-class ListenerTools {
+const writeDefaultFile = async (outFilepath, newLine) => {
+  await writeFile(outFilepath, newLine, { flag: 'a+' }, (err) => {
+    if (err) {
+      throw err;
+    }
+  });
+};
+
+/**
+ * Listener Handler to save stream messages into a jsonl file.
+ */
+class JSONLFileHandler {
   constructor() {
-    this.tableId = null;
-    this.dataSet = null;
     this.counter = 0;
-    this.bqClient = null;
-    this.logLine = '';
-    this.logger = new FactivaLogger('/tools-listener.js');
+    this.logger = new FactivaLogger('/listenerHandlers.js');
   }
 
   /**
@@ -33,11 +40,7 @@ class ListenerTools {
       outFilename,
     );
     const newLine = `${JSON.stringify(message)}\n`;
-    await writeFile(outFilepath, newLine, { flag: 'a+' }, (err) => {
-      if (err) {
-        throw err;
-      }
-    });
+    await writeDefaultFile(outFilepath, newLine);
   }
 
   /**
@@ -46,7 +49,7 @@ class ListenerTools {
    * @param {string} subscriptionId - Suscription id from response
    * @returns {boolean} Status from the process
    */
-  async saveJsonlFile(message, subscriptionId) {
+  async save(message, subscriptionId) {
     const errorFile = join(
       constants.LISTENER_FILES_DEFAULT_FOLDER,
       'errors.log',
@@ -56,10 +59,7 @@ class ListenerTools {
     const streamShortId = subscriptionIdParsed[subscriptionIdParsed.length - 3];
     const currentHour = helper.getCurrentDate();
 
-    this.logger.log(
-      INFO,
-      `[ACTIVITY] Receiving messages (SYNC)[${this.counter}]`,
-    );
+    this.logger.log(INFO, 'Saving into JSONL file');
     helper.createPathIfNotExist(constants.LISTENER_FILES_DEFAULT_FOLDER);
 
     if (Object.keys(message).includes('action')) {
@@ -81,70 +81,65 @@ class ListenerTools {
         errorMessage = `${Date.now()}\tERR\tInvalidAction\t${JSON.stringify(
           formatMessage,
         )}\n`;
-        await writeFile(errorFile, errorMessage, { flag: 'a+' }, (err) => {
-          if (err) {
-            throw err;
-          }
-        });
+        await writeDefaultFile(errorFile, errorMessage);
       }
       this.counter += 1;
       if (this.counter % 100 == 0) {
-        this.logger.log(INFO, `[${this.counter}]`);
+        console.log(`[${this.counter}]`);
       }
     } else {
       this.logLine += constants.ACTION_CONSOLE_INDICATOR[constants.ERR_ACTION];
       errorMessage = `${Date.now()}\tERR\tInvalidMessage\t${JSON.stringify(
         message,
       )}\n`;
-      await writeFile(errorFile, errorMessage, { flag: 'a+' }, (err) => {
-        if (err) {
-          throw err;
-        }
-      });
+      await writeDefaultFile(errorFile, errorMessage);
       return false;
     }
     console.log(this.logLine);
     return true;
   }
+}
 
-  /**
-   * Check big query table vars
-   */
-  verifyBigQueryTable() {
+/**
+ * Listener Handler to save stream messages into a bigquery
+ */
+class BigQueryHandler {
+  constructor() {
+    this.logger = new FactivaLogger('/listenerHandlers.js');
+    this.logLine = '';
+    this.counter = 0;
     this.tableId = helper.loadEnvVariable('BqTable');
     this.dataSet = helper.loadEnvVariable('BqDataset');
     if (!this.tableId) {
-      throw ReferenceError('Env variable StreamLogBQ not set');
+      this.logger(ERROR, 'Env variable BqTable not set');
+      throw ReferenceError('Env variable BqTable not set');
     }
+    this.client = new BigQuery();
   }
-
   /**
    * Listener to save response into a Big query table
    * @param {string} message - Message to be stored
    * @param {string} subscriptionId - Suscription id from response
    * @returns {boolean} Status from the process
    */
-  async saveOnBigQueryTable(message, subscriptionId) {
+  async save(message, subscriptionId) {
     let retVal = false;
     let msgAn = '';
-    this.verifyBigQueryTable();
-    this.bqClient = new BigQuery();
-    this.logger.log(INFO, '[DB] Receiving messages (SYNC)');
+    this.logger.log(INFO, 'Saving into BigQuery table');
     helper.createPathIfNotExist(constants.LISTENER_FILES_DEFAULT_FOLDER);
-
     try {
       if (Object.keys(message).includes('action')) {
         msgAn = message['an'];
         let formatMessage = helper.formatTimestamps(message);
-        formatMessage = helper.formatMultivalues(formatMessage);
-        formatMessage = formatMessageToResponseSchema(formatMessage);
-        await this.bqClient
-          .dataset(this.dataSet)
-          .table(this.tableId)
-          .insert([formatMessage]);
-        retVal = true;
         const currentAction = message['action'];
         if (constants.ALLOWED_ACTIONS.includes(currentAction)) {
+          formatMessage = helper.formatMultivalues(formatMessage);
+          formatMessage = formatMessageToResponseSchema(formatMessage);
+          await this.client
+            .dataset(this.dataSet)
+            .table(this.tableId)
+            .insert([formatMessage]);
+          retVal = true;
           this.logLine += constants.ACTION_CONSOLE_INDICATOR[currentAction];
         } else {
           this.logLine +=
@@ -161,6 +156,7 @@ class ListenerTools {
         );
       }
     } catch (e) {
+      this.logger.log('ERROR', e);
       this.counter += 1;
       this.logLine = '#';
       const logPath = constants.LISTENER_FILES_DEFAULT_FOLDER;
@@ -168,19 +164,29 @@ class ListenerTools {
         msgAn !== ''
           ? join(logPath, `${msgAn}.json`)
           : join(logPath, `${Date.now() / 1000}.json`);
-      await writeFile(
-        fileName,
-        JSON.stringify(message),
-        { flag: 'a+' },
-        (err) => {
-          if (err) {
-            throw err;
-          }
-        },
-      );
+      await writeDefaultFile(fileName, JSON.stringify(message));
     }
     console.log(this.logLine);
     return retVal;
+  }
+}
+
+/**
+ * Listener Handler to save stream messages into a mongodb
+ */
+class MongoDBHandler {
+  constructor() {
+    this.tableId = null;
+    this.dataSet = null;
+    this.counter = 0;
+    this.bqClient = null;
+    this.logLine = '';
+    this.logger = new FactivaLogger('/listenerHandlers.js');
+
+    const uri = helper.loadEnvVariable('mongodbURI');
+    this.databaseName = helper.loadEnvVariable('mongodbDatabaseName');
+    this.collectionName = helper.loadEnvVariable('mongodbCollectionName');
+    this.client = new MongoClient(uri);
   }
 
   /**
@@ -189,18 +195,18 @@ class ListenerTools {
    * @param {string} subscriptionId - Suscription id from response
    * @returns {boolean} Status from the process
    */
-  async saveOnMongoDB(message, subscriptionId) {
-    this.logger.log(INFO, '[ACTIVITY] Receiving messages (SYNC)');
+  async save(message, subscriptionId) {
+    let retVal = false;
+    this.logger.log(INFO, 'Saving into MongoDB');
     helper.createPathIfNotExist(constants.LISTENER_FILES_DEFAULT_FOLDER);
-    const uri = helper.loadEnvVariable('mongodbURI');
-    const databaseName = helper.loadEnvVariable('mongodbDatabaseName');
-    const collectionName = helper.loadEnvVariable('mongodbCollectionName');
-
-    const client = new MongoClient(uri);
+    const errorFile = join(
+      constants.LISTENER_FILES_DEFAULT_FOLDER,
+      'errors.log',
+    );
     try {
-      await client.connect();
-      const database = client.db(databaseName);
-      const collection = database.collection(collectionName);
+      await this.client.connect();
+      const database = this.client.db(this.databaseName);
+      const collection = database.collection(this.collectionName);
 
       helper.createPathIfNotExist(constants.LISTENER_FILES_DEFAULT_FOLDER);
 
@@ -212,17 +218,14 @@ class ListenerTools {
         if (constants.ALLOWED_ACTIONS.includes(currentAction)) {
           this.logLine += constants.ACTION_CONSOLE_INDICATOR[currentAction];
           await collection.insertOne(formatMessage);
+          retVal = true;
         } else {
           this.logLine +=
             constants.ACTION_CONSOLE_INDICATOR[constants.ERR_ACTION];
           errorMessage = `${Date.now()}\tERR\tInvalidAction\t${JSON.stringify(
             formatMessage,
           )}\n`;
-          await writeFile(errorFile, errorMessage, { flag: 'a+' }, (err) => {
-            if (err) {
-              throw err;
-            }
-          });
+          await writeDefaultFile(errorFile, errorMessage);
         }
         this.counter += 1;
         if (this.counter % 100 == 0) {
@@ -234,25 +237,19 @@ class ListenerTools {
         errorMessage = `${Date.now()}\tERR\tInvalidMessage\t${JSON.stringify(
           message,
         )}\n`;
-        await writeFile(errorFile, errorMessage, { flag: 'a+' }, (err) => {
-          if (err) {
-            throw err;
-          }
-        });
-        return false;
+        await writeDefaultFile(errorFile, errorMessage);
+        return retVal;
       }
     } catch (err) {
-      await writeFile(errorFile, err, { flag: 'a+' }, (err) => {
-        if (err) {
-          throw err;
-        }
-      });
-    } finally {
-      await client.close();
-      console.log(this.logLine);
+      await writeDefaultFile(errorFile, err);
     }
-    return true;
+    console.log(this.logLine);
+    return retVal;
+  }
+
+  async closeConnection() {
+    await this.client.close();
   }
 }
 
-module.exports = ListenerTools;
+module.exports = { MongoDBHandler, JSONLFileHandler, BigQueryHandler };

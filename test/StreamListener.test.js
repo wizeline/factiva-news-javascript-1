@@ -2,7 +2,11 @@ const chai = require('chai');
 const { expect } = chai;
 const { Stream } = require('../lib/factiva/news/stream');
 const { helper, core } = require('@factiva/core');
-const { ListenerTools } = require('../lib/factiva/news/tools');
+const {
+  MongoDBHandler,
+  JSONLFileHandler,
+  BigQueryHandler,
+} = require('../lib/factiva/news/tools');
 const fs = require('fs');
 const { constants } = core;
 
@@ -53,17 +57,43 @@ describe('Factiva News - ', () => {
       }
     });
 
-    it('should listen a subscription', async () => {
+/*     it('should listen a subscription- jsonl file', async () => {
       const stream = new Stream({ streamId: VALID_STREAM_ID });
-      const listenerTools = new ListenerTools();
+      const jsonlHandler = new JSONLFileHandler();
       await stream.setAllSubscriptions();
 
       const subscription = stream.getSubscriptionByIndex(0);
       await subscription.listener.listen({
-        callback: listenerTools.saveJsonlFile.bind(listenerTools),
+        callback: jsonlHandler.save.bind(jsonlHandler),
         maximumMessages: 10,
       });
       expect(fs.existsSync(constants.LISTENER_FILES_DEFAULT_FOLDER)).to.be.true;
     }).timeout(0);
+
+    it('should listen a subscription- bigquery', async () => {
+      const stream = new Stream({ streamId: VALID_STREAM_ID });
+      const bigQueryHandler = new BigQueryHandler();
+      await stream.setAllSubscriptions();
+
+      const subscription = stream.getSubscriptionByIndex(0);
+      await subscription.listener.listen({
+        callback: bigQueryHandler.save.bind(bigQueryHandler),
+        maximumMessages: 10,
+      });
+      expect(fs.existsSync(constants.LISTENER_FILES_DEFAULT_FOLDER)).to.be.true;
+    }).timeout(0);
+
+    it('should listen a subscription- mongodb', async () => {
+      const stream = new Stream({ streamId: VALID_STREAM_ID });
+      const mongoDBHandler = new MongoDBHandler();
+      await stream.setAllSubscriptions();
+
+      const subscription = stream.getSubscriptionByIndex(0);
+      await subscription.listener.listen({
+        callback: mongoDBHandler.save.bind(mongoDBHandler),
+        maximumMessages: 10,
+      });
+      expect(fs.existsSync(constants.LISTENER_FILES_DEFAULT_FOLDER)).to.be.true;
+    }).timeout(0); */
   });
 });

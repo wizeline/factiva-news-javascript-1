@@ -1,3 +1,7 @@
-import ListenerTools from './listener';
+import {
+  MongoDBHandler,
+  JSONLFileHandler,
+  BigQueryHandler,
+} from './listenerHandlers';
 
-module.exports = { ListenerTools };
+module.exports = { MongoDBHandler, JSONLFileHandler, BigQueryHandler };

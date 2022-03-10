@@ -9,5 +9,18 @@
   "BqTable": "BIGQUERY_TABLE",
   "mongodbURI": "MONGODB_CONNECTION_STRING",
   "mongodbDatabaseName": "MONGODB_DATABASE_NAME",
-  "mongodbCollectionName": "MONGODB_COLLECTION_NAME"
+  "mongodbCollectionName": "MONGODB_COLLECTION_NAME",
+  "proxy": {
+    "use": "PROXY_USE",
+    "protocol": "PROXY_PROTOCOL",
+    "host": "PROXY_HOST",
+    "port": "PROXY_PORT",
+    "auth": {
+      "username": "PROXY_AUTH_USER",
+      "password": "PROXY_AUTH_PASSWORD"
+    }
+  },
+  "dowloadFilesDir": "DOWNLOAD_FILES_DIR",
+  "listenerFilesDir": "LISTENER_FILES_DIR",
+  "logFilesDir": "LOG_FILES_DIR"
 }
