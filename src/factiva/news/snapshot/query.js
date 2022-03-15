@@ -6,22 +6,21 @@ import { BulkNewsQuery } from '../bulkNews';
 const { constants } = core;
 
 /**
- * Validates that a given options is string and part of the valid options.
- * @param {string} option
- * @param {string[]} validOptions
- * @returns the given option in case it is valid
- * @throws {RangeError} - when the given option is not part of the valid
- * options.
+ * Validate if groupBySourceCode and groupByDimensios fields has no conflicts eachother
+ * @param {(boolean|null)} groupBySourceCode
+ * @param {(string[]|null)} groupByDimensions
+ * @returns {ReferenceError} Error if the variable is not the type given
  */
-function validateOption(option, validOptions) {
-  helper.validateType(option, 'string');
-  if (!validOptions.includes(option.trim())) {
-    throw new RangeError(
-      `Option value ${option} is not within the allowed options: ${validOptions}`,
+const validateGroupOptions = (groupBySourceCode, groupByDimensions) => {
+  if (
+    typeof groupBySourceCode === 'boolean' &&
+    Array.isArray(groupByDimensions)
+  ) {
+    throw new TypeError(
+      'The value groupBySourceCode and groupByDimensions are not compatible each other',
     );
   }
-  return option;
-}
+};
 
 /**
  * Class representing queries used in Factiva Snapshots API.
@@ -43,12 +42,12 @@ class SnapshotQuery extends BulkNewsQuery {
       fileFormat = constants.API_AVRO_FORMAT,
       frequency = constants.API_MONTH_PERIOD,
       dateField = constants.API_PUBLICATION_DATETIME_FIELD,
-      groupBySourceCode = false,
+      groupBySourceCode = null,
       top = 10,
+      groupByDimensions = null,
     } = {},
   ) {
     super(where, includes, excludes, selectFields);
-
     helper.validateType(limit, 'number');
     if (limit < 0) {
       throw new RangeError('Limit value is not valid or not positive');
@@ -58,15 +57,28 @@ class SnapshotQuery extends BulkNewsQuery {
       this.limit = limit;
     }
 
-    this.fileFormat = validateOption(
+    this.fileFormat = helper.validateOption(
       fileFormat.toLowerCase(),
       constants.API_EXTRACTION_FILE_FORMATS,
     );
-    this.frequency = validateOption(frequency, constants.API_DATETIME_PERIODS);
-    this.dateField = validateOption(dateField, constants.API_DATETIME_FIELDS);
+    this.frequency = helper.validateOption(
+      frequency,
+      constants.API_DATETIME_PERIODS,
+    );
+    this.dateField = helper.validateOption(
+      dateField,
+      constants.API_DATETIME_FIELDS,
+    );
 
-    helper.validateType(groupBySourceCode, 'boolean');
-    this.groupBySourceCode = groupBySourceCode;
+    validateGroupOptions(groupBySourceCode, groupByDimensions);
+
+    if (typeof groupBySourceCode === 'boolean') {
+      this.groupBySourceCode = groupBySourceCode;
+    }
+
+    if (Array.isArray(groupByDimensions)) {
+      this.groupByDimensions = groupByDimensions;
+    }
 
     helper.validateType(top, 'number');
     if (top <= 0) {
@@ -88,16 +100,36 @@ class SnapshotQuery extends BulkNewsQuery {
    * @returns {Object}
    */
   getAnalyticsQuery() {
+    validateGroupOptions(this.groupBySourceCode, this.groupByDimensions);
     const baseQuery = super.getBaseQuery();
-    return {
+    const analitycsQuery = {
       query: {
         ...baseQuery.query,
         frequency: this.frequency,
-        dateField: this.dateField,
-        groupBySourceCode: this.groupBySourceCode,
+        'date_field': this.dateField,
         top: this.top,
       },
     };
+    if (typeof this.groupBySourceCode === 'boolean') {
+      analitycsQuery.query['group_by_source_code'] = this.groupBySourceCode;
+    } else {
+      if (this.groupByDimensions && this.groupByDimensions.length) {
+        if (this.groupByDimensions.length <= 4) {
+          this.groupByDimensions.forEach((option) => {
+            helper.validateOption(
+              option,
+              constants.API_GROUP_DIMENSIONS_FIELDS,
+            );
+          });
+        } else {
+          throw new ReferenceError('The maximiun group_dimensions options is 4');
+        }
+      } else {
+        this.groupByDimensions = [];
+      }
+      analitycsQuery.query['group_dimensions'] = this.groupByDimensions;
+    }
+    return analitycsQuery;
   }
 
   /**

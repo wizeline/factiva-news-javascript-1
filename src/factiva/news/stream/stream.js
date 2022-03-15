@@ -1,19 +1,17 @@
-// eslint-disable-next-line
 import { core, helper } from '@factiva/core';
-
 import Subscription from './Subscription';
-// eslint-disable-next-line
 import { BulkNewsQuery } from '../bulkNews';
-
-const { constants, StreamResponse, StreamUser } = core;
-
+const { constants, StreamResponse, StreamUser, FactivaLogger } = core;
+const {
+  LOGGER_LEVELS: { INFO, DEBUG, ERROR },
+} = constants;
 class Stream {
   constructor({
     streamId = null,
     snapshotId = null,
     query = '',
     streamUser = null,
-    apiKey = null,
+    key = null,
     requestInfo = false,
   } = {}) {
     /**
@@ -31,16 +29,20 @@ class Stream {
      * can be created from a given query in Dataflow SQL query syntax.
      * @param {object} [streamUser=null] - Indicates the user which is
      * associated the current stream. The user is an instance from streamUser
-     * @param {object} [apiKey=null] - Indicates the apiKey to use
+     * @param {object} [key=null] - Indicates the key to use
      * for create a user. This applies only if there isn't a streamUser
      * @param {boolean} [requestInfo=false] - Indicates if the user
      * needs to load the account details
      */
+    this.logger = new FactivaLogger(__filename);
     this.streamId = streamId;
     this.snapshotId = snapshotId;
     this.query = new BulkNewsQuery(query);
     // eslint-disable-next-line
-    this.streamUser = streamUser instanceof StreamUser ? streamUser : new StreamUser(apiKey, requestInfo);
+    this.streamUser =
+      streamUser instanceof StreamUser
+        ? streamUser
+        : new StreamUser(key, requestInfo);
     this.subscriptions = {};
 
     if (!this.streamUser) throw ReferenceError('Undefined Stream User');
@@ -63,6 +65,26 @@ class Stream {
     return subscriptions.map((subscription) => subscription.toString());
   }
 
+  getSubscriptionIdByIndex(index) {
+    const subscriptionKeys = Object.keys(this.subscriptions);
+    if (index > subscriptionKeys.length) {
+      throw RangeError('Index exceeds existing subscriptions');
+    }
+    return subscriptionKeys[index];
+  }
+
+  getSubscriptionByIndex(index) {
+    return this.subscriptions[this.getSubscriptionIdByIndex(index)];
+  }
+
+  getSubscriptionById(id) {
+    try {
+      return this.subscriptions[id];
+    } catch {
+      throw RangeError('The suscriptionId not exist on the stream');
+    }
+  }
+
   /**
    * Creates all the subscriptions that are available for a given stream
    * There a two cases in which this function is called:
@@ -71,6 +93,7 @@ class Stream {
    * @param {object} [data] - response from factiva streams which contains subscriptions.
    */
   async createDefaultSubscription({ data }) {
+    this.logger.log(INFO, 'Creating default subscription');
     const subscriptionsData = data.relationships.subscriptions.data;
     await Promise.all(
       subscriptionsData.map(async (subscription) => {
@@ -95,6 +118,7 @@ class Stream {
    */
   async createSubscription() {
     try {
+      this.logger.log(INFO, 'Creating subscription');
       const newSubscription = new Subscription({ streamId: this.streamId });
       const headers = this.streamUser.getAuthenticationHeaders();
       await newSubscription.create({ headers });
@@ -104,10 +128,10 @@ class Stream {
 
       return newSubscription.id;
     } catch (err) {
-      throw TypeError(
-        `Unexpected error happened while
-        creating the subscription: ${err}`,
-      );
+      const msg = `Unexpected error happened while
+        creating the subscription: ${err}`;
+      this.logger.log(ERROR, msg);
+      throw TypeError(msg);
     }
   }
 
@@ -120,6 +144,7 @@ class Stream {
    * @throws {TypeError} - when the subsciption failed to be deleted.
    */
   async deleteSubscription(subscriptionId) {
+    this.logger.log(INFO, 'Deleting subscription');
     if (!this.subscriptions[subscriptionId]) {
       throw constants.INVALID_SUBSCRIPTION_ID_ERROR;
     }
@@ -130,10 +155,9 @@ class Stream {
         headers,
       });
     } catch (err) {
-      throw TypeError(
-        `Unexpected error happened while
-        deleting the subscription: ${err}`,
-      );
+      const msg = `Unexpected error happened while deleting the subscription: ${err}`;
+      this.logger.log(ERROR, msg);
+      throw TypeError(msg);
     }
 
     delete this.subscriptions[subscriptionId];
@@ -146,6 +170,7 @@ class Stream {
    * It is expected that all subscriptions will be loaded
    */
   async setAllSubscriptions() {
+    this.logger.log(INFO, 'Setting all subscriptions');
     if (!this.streamId) {
       throw constants.UNDEFINED_STREAM_ID_ERROR;
     }
@@ -187,6 +212,35 @@ class Stream {
       ackEnabled,
       userErrorHandling,
     });
+  }
+
+  /**
+   * Get information of all streams from the current stream being used
+   * @return {Array.<StreamResponse>} - way for handling every factiva stream response.
+   * @throws {ReferenceError} - when stream id has not been found.
+   */
+  async getAllStreams() {
+    this.logger.log(INFO, 'Getting all steams');
+    const uri = `${this.streamUrl}`;
+    const headers = this.streamUser.getAuthenticationHeaders();
+    const response = await helper.apiSendRequest({
+      method: 'GET',
+      endpointUrl: uri,
+      headers,
+    });
+    const { data } = response;
+    const streams = [];
+
+    data.data.forEach((stream) => {
+      streams.push(
+        new StreamResponse({
+          ...stream,
+          ...(stream.links ? { links: stream.links } : null),
+        }),
+      );
+    });
+
+    return streams;
   }
 
   /**
@@ -243,6 +297,8 @@ class Stream {
    * @throws {ReferenceError} - when the query is not set.
    */
   async createByQuery() {
+    this.logger.log(DEBUG, 'Creating stream by query');
+
     if (!this.query) {
       throw ReferenceError('query undefined');
     }
@@ -283,6 +339,7 @@ class Stream {
    * @throws {ReferenceError} - when the snapshotId is not set.
    */
   async createBySnapshotId() {
+    this.logger.log(DEBUG, 'Creating stream by Snapshot ID');
     if (!this.snapshotId) {
       throw ReferenceError('snaphotId undefined');
     }
@@ -313,6 +370,7 @@ class Stream {
    * @throws {ReferenceError} - when the streamId is not set.
    */
   async delete() {
+    this.logger.log(DEBUG, 'Deleting stream');
     if (!this.streamId) {
       throw constants.UNDEFINED_STREAM_ID_ERROR;
     }

@@ -2,7 +2,7 @@
   "name": "@factiva/news",
   "version": "1.0.0",
   "description": "Factiva Javascript Library for Dow Jones Users",
-  "main": "index.js",
+  "main": "lib/factiva/index.js",
   "directories": {
     "test": "test"
   },
@@ -11,7 +11,8 @@
     "test": "mocha --timeout 60000",
     "babel": "babel src -d lib",
     "lint": "eslint src/**",
-    "lint-fix": "eslint --fix --ext .js,.jsx ."
+    "lint-fix": "eslint --fix --ext .js,.jsx .",
+    "test-debug": "npm run babel && npm run test"
   },
   "author": "",
   "license": "ISC",
@@ -32,9 +33,15 @@
     "prettier": "^2.3.1"
   },
   "dependencies": {
+    "@google-cloud/bigquery": "^5.11.0",
+    "core-js": "^3.15.0",
     "eslint-plugin-import": "^2.23.4",
     "eslint-plugin-prettier": "^3.4.0",
-    "core-js": "^3.15.0",
+    "mongodb": "^4.4.0",
     "papaparse": "^5.3.1"
+  },
+  "engines": {
+    "npm": ">=6.0.0",
+    "node": ">=13.0.0"
   }
 }

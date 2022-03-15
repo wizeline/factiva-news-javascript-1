@@ -1,10 +1,14 @@
 // eslint-disable-next-line import/no-extraneous-dependencies, import/no-unresolved
 import { core, helper } from '@factiva/core';
+import Company from './company';
+import { existsSync, mkdirSync, readFileSync, unlinkSync } from 'fs';
 import parser from 'papaparse';
-
+import { join } from 'path';
 const { constants } = core;
-const { UserKey } = core;
-
+const { UserKey, FactivaLogger } = core;
+const {
+  LOGGER_LEVELS: { INFO },
+} = constants;
 /** Class representing the taxonomy available within the Snapshots API */
 class Taxonomy {
   /**
@@ -24,7 +28,7 @@ class Taxonomy {
    * @example
    * // Creating a taxonomy instance with an existing UserKey instance
    * myUser = UserKey('abcd1234abcd1234abcd1234abcd1234')
-   * myTaxonomy = await Taxonomy.creat(userKey = myUser)
+   * myTaxonomy = await Taxonomy.create(userKey = myUser)
    */
   static async create(userKey, requestInfo) {
     const taxonomy = new Taxonomy(userKey, requestInfo);
@@ -49,6 +53,8 @@ class Taxonomy {
   constructor(userKey) {
     this.categories = [];
     this.userKey = new UserKey(userKey);
+    this.identifiers = [];
+    this.logger = new FactivaLogger(__filename);
   }
 
   /**
@@ -58,6 +64,7 @@ class Taxonomy {
   async setInfo(userKey, requestInfo) {
     this.userKey = await UserKey.create(userKey, requestInfo);
     this.categories = await this.getCategories();
+    this.identifiers = await this.getIdentifiers();
   }
 
   /**
@@ -69,9 +76,9 @@ class Taxonomy {
    * // be accessed as is.
    */
   async getCategories() {
-    const headers = { 'user-key': this.userKey.apiKey };
+    this.logger.log(INFO, 'Getting taxonomy categories');
+    const headers = { 'user-key': this.userKey.key };
     const endpointUrl = `${constants.API_HOST}${constants.API_SNAPSHOTS_TAXONOMY_BASEPATH}`;
-
     const response = await helper.apiSendRequest({
       method: 'GET',
       endpointUrl,
@@ -82,8 +89,30 @@ class Taxonomy {
   }
 
   /**
+   * Requests a list of companies identifiers
+   * @returns {string[]} - the available companies identifiers
+   * @throws {Error} - When API request returns unexpected error
+   * @example
+   * // This method is called in the create method, so the categories can
+   * // be accessed as is.
+   */
+  async getIdentifiers() {
+    this.logger.log(INFO, 'Getting taxonomy identifiers');
+    const headers = this.userKey.getAuthenticationHeaders();
+    const endpointUrl = `${constants.API_HOST}${constants.API_SNAPSHOTS_COMPANY_IDENTIFIERS_BASEPATH}`;
+    const response = await helper.apiSendRequest({
+      method: 'GET',
+      endpointUrl,
+      headers,
+    });
+
+    return response.data.data.attributes;
+  }
+
+  /**
    * Requests the codes available in the taxonomy for the specified category
    * @param {string} category - Name of the taxonomy category to request the codes from
+   * @param {boolean} [saveFile=false] - Flag to determine if the file must be saved after processing
    * @returns {pending} - Codes for the specified category
    * @throws {TypeError} - When category is not of a valid type
    * @throws {Error} - When API request returns unexpected error
@@ -93,30 +122,58 @@ class Taxonomy {
    * taxonomy = Taxonomy()
    * industryCodes = taxonomy.getCategoryCodes('industries')
    */
-  async getCategoryCodes(category) {
+  async getCategoryCodes(category, saveFile = false) {
+    this.logger.log(INFO, 'Getting taxonomy categories codes');
     helper.validateType(category, 'string');
 
     const responseFormat = 'csv';
-    const headers = { 'user-key': this.userKey.apiKey, responseType: 'stream' };
+    const headers = this.userKey.getAuthenticationHeaders();
     const endpointUrl = `${constants.API_HOST}${constants.API_SNAPSHOTS_TAXONOMY_BASEPATH}/${category}/${responseFormat}`;
-
-    const response = await helper.apiSendRequest({
+    const filePath = join(process.cwd(), `temporalFiles`);
+    if (!existsSync(filePath)) {
+      mkdirSync(filePath);
+    }
+    const fileFullPath = join(
+      filePath,
+      `${category}_codes_${Date.now()}.${responseFormat}`,
+    );
+    const formattedData = {};
+    await helper.apiSendRequest({
       method: 'GET',
       endpointUrl,
       headers,
+      responseType: constants.REQUEST_STREAM_TYPE,
+      fileName: fileFullPath,
     });
 
-    const parsedData = parser.parse(response.data, {
-      header: true,
-      transformHeader: (header) => header.trim(),
-    });
-    const formattedData = {};
-
-    parsedData.data.forEach((entry) => {
+    let parsedData = await this.readCSV(fileFullPath);
+    parsedData.forEach((entry) => {
       formattedData[entry.code] = entry.description;
     });
 
+    if (!saveFile) {
+      unlinkSync(fileFullPath);
+    }
     return formattedData;
+  }
+
+  /**
+   * Read CSV from a local directory
+   * @param {string} filePath - Path from a local file
+   * @returns {Object} JSON representation of the csv file
+   */
+  async readCSV(filePath) {
+    const csvFile = readFileSync(filePath);
+    const csvData = csvFile.toString();
+    return new Promise((resolve) => {
+      parser.parse(csvData, {
+        header: true,
+        transformHeader: (header) => header.trim(),
+        complete: (results) => {
+          resolve(results.data);
+        },
+      });
+    });
   }
 
   /**
@@ -136,7 +193,7 @@ class Taxonomy {
     helper.validateType(codeType, 'string');
     helper.validateType(companyCode, 'string');
 
-    const headers = { 'user-key': this.userKey.apiKey };
+    const headers = { 'user-key': this.userKey.key };
     const endpointUrl = `${constants.API_HOST}${constants.API_SNAPSHOTS_COMPANIES_BASEPATH}/${codeType}/${companyCode}`;
 
     const response = await helper.apiSendRequest({
@@ -177,7 +234,7 @@ class Taxonomy {
       helper.validateType(company, 'string');
     });
 
-    const headers = { 'user-key': this.userKey.apiKey };
+    const headers = { 'user-key': this.userKey.key };
 
     const payload = { data: { attributes: { ids: companiesCodes } } };
 
@@ -219,6 +276,10 @@ class Taxonomy {
    */
   // eslint-disable-next-line consistent-return
   async getCompany(codeType, { companyCode, companiesCodes }) {
+    this.logger.log(
+      INFO,
+      `Getting company: ${codeType} - ${companyCode}${companiesCodes}`,
+    );
     if (companyCode && companiesCodes) {
       throw new Error(
         'company and companies paramenters cannot be set simultanously',
@@ -235,4 +296,4 @@ class Taxonomy {
   }
 }
 
-module.exports = Taxonomy;
+module.exports = { Taxonomy, Company };

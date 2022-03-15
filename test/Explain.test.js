@@ -29,6 +29,16 @@ describe('Factiva News - ', () => {
       expect(s.lastExplainJob.jobState).to.equal(constants.API_JOB_DONE_STATE);
       expect(s.lastExplainJob.documentVolume).to.be.greaterThan(0);
     });
+
+    it('request an explain job sample from a query', async () => {
+      const s = await Snapshot.create(null, false, {
+        query: VALID_WHERE_STATEMENT,
+      });
+      await s.processExplain();
+      const jobSamples = await s.getExplainJobSamples(10);
+      expect(jobSamples.length).to.be.greaterThan(0);
+    });
+
     it('should throw an errow when an invalid query is provided', async () => {
       const s = await Snapshot.create(null, false, {
         query: INVALID_WHERE_STATEMENT,

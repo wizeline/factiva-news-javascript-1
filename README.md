@@ -23,6 +23,54 @@ Example of importing modules:
   const { Snapshot, SnapshotQuery } = require('../lib/factiva/news/snapshot');
 ```
 
+## Environment vars
+To be able to use Stream Listener options, add the following environment vars depending on your selected listener tool
+
+### Required
+
+User Api key
+
+```bash
+export USER_KEY=loremipsum12345
+```
+
+To use BigQuery Stream Listener
+
+``` bash
+export GOOGLE_APPLICATION_CREDENTIALS="/Users/credentials.json"
+export BIGQUERY_DATA_SET=dataset
+export BIGQUERY_TABLE=table
+```
+
+To use MongoDB Stream Listener
+
+``` bash
+export MONGODB_CONNECTION_STRING=mongodb://localhost:27017
+export MONGODB_DATABASE_NAME=factiva-news
+export MONGODB_COLLECTION_NAME=stream-listener  
+```
+### Optionals
+
+To use a proxy on request
+``` bash
+export PROXY_USE=false
+export PROXY_PROTOCOL=https
+export PROXY_HOST=localhost
+export PROXY_PORT=80
+
+# If auth is required
+export PROXY_AUTH_USER=user
+export PROXY_AUTH_PASSWORD=pass
+```
+
+Files directory. If are not set, the project root directory path will be used
+
+``` Bash
+export DOWNLOAD_FILES_DIR=/users/dowloadFiles
+export STREAM_FILES_DIR=/users/listenerFiles
+export LOG_FILES_DIR=/users/logFiles
+```
+
 ## Snapshots
 
 - Explain
@@ -160,7 +208,18 @@ const companiesData = await taxonomy.getCompany('isin', {
   ],
 });
 ```
+- Start a Stream Listener
+```js
+const stream = new Stream(USER_KEY);
+const listenerTools = new ListenerTools();
+await stream.setAllSubscriptions();
 
+const subscription = stream.getSubscriptionByIndex(0);
+await subscription.listener.listen({
+  callback: listenerTools.saveJsonlFile.bind(listenerTools),
+  maximumMessages: 10,
+});
+```
 ## Tests
 
 For running active tests

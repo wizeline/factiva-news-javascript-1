@@ -22,7 +22,7 @@ class ExtractionJob extends BulkNewsJob {
 
     if (userKey && snapshotId) {
       this.jobId = snapshotId;
-      this.link = `${constants.API_HOST}${constants.API_SNAPSHOTS_BASEPATH}/dj-synhub-extraction-${this.userKey.apiKey}-${snapshotId}`;
+      this.link = `${constants.API_HOST}${constants.API_SNAPSHOTS_BASEPATH}/dj-synhub-extraction-${this.userKey.key}-${snapshotId}`;
     }
   }
 

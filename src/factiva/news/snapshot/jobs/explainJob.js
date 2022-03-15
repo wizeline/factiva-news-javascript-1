@@ -19,11 +19,21 @@ class ExplainJob extends BulkNewsJob {
   constructor(userKey) {
     super(userKey);
     this.documentVolume = 0;
+    this.extractionType = 'documents';
   }
 
   // eslint-disable-next-line class-methods-use-this
   getEndpointUrl() {
-    return `${constants.API_HOST}${constants.API_SNAPSHOTS_BASEPATH}${constants.API_EXPLAIN_SUFFIX}`;
+    let endpoint = '';
+    switch (this.extractionType) {
+      case constants.API_SAMPLES_EXTRACTION_TYPE:
+        endpoint = `${constants.API_HOST}${constants.API_EXTRACTIONS_BASEPATH}${constants.API_EXTRACTIONS_SAMPLES_SUFFIX}`;
+        break;
+      default:
+        endpoint = `${constants.API_HOST}${constants.API_SNAPSHOTS_BASEPATH}${constants.API_EXPLAIN_SUFFIX}`;
+    }
+    this.extractionType = constants.API_DEFAULT_EXTRACTION_TYPE;
+    return endpoint;
   }
 
   // eslint-disable-next-line class-methods-use-this

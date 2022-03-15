@@ -1,9 +1,8 @@
-// eslint-disable-next-line
 import { core, helper } from '@factiva/core';
-
-const { constants, StreamUser } = core;
-// eslint-disable-next-line
-const FIRST_OBJECT = 0;
+const { constants, StreamUser, FactivaLogger } = core;
+const {
+  LOGGER_LEVELS: { INFO, DEBUG, ERROR, WARN },
+} = constants;
 
 const defaultCallback = (message) => {
   /* Call to default callback function. */
@@ -27,24 +26,29 @@ class Listener {
    */
   constructor({ subscriptionId = null, streamUser = null }) {
     let subscriptionIdEnv;
+    this.logger = new FactivaLogger(__filename);
     if (!subscriptionId) {
       try {
         subscriptionIdEnv = helper.loadEnvironmentValue(
           'FACTIVA_STREAM_SUBSCRIPTION_ID',
         );
       } catch (e) {
+        this.logger.log(ERROR, 'No subscription specified');
         throw constants.UNDEFINED_SUBSCRIPTION_ERROR;
       }
     }
     if (!streamUser) {
+      this.logger.log(ERROR, 'Undefined streamUser');
       throw ReferenceError('Undefined streamUser');
     }
     if (!(streamUser instanceof StreamUser)) {
+      this.logger.log(ERROR, 'streamUser is not instance of StreamUser');
       throw ReferenceError('streamUser is not instance of StreamUser');
     }
 
     this.streamUser = streamUser;
     this.subscriptionId = subscriptionId || subscriptionIdEnv;
+    this.messagesCount = 0;
   }
 
   /**
@@ -54,6 +58,7 @@ class Listener {
    */
   subscriptionIdToStreamId() {
     if (!this.subscriptionId) {
+      this.logger.log(ERROR, 'subscriptionId undefined');
       throw ReferenceError('subscriptionId undefined');
     }
     const subscriptionId = this.subscriptionId.split('-');
@@ -81,8 +86,7 @@ class Listener {
    */
   checkDocCountExceeded(maxDocumentsReceived) {
     // eslint-disable-next-line
-    const streamDisabledMsg = 
-      `OOPS! Looks like you've exceeded the maximum number of documents received for your account (${maxDocumentsReceived}).
+    const streamDisabledMsg = `OOPS! Looks like you've exceeded the maximum number of documents received for your account (${maxDocumentsReceived}).
       As such, no new documents will be added to your stream's queue.
       However, you won't lose access to any documents that have already been added to the queue.
       These will continue to be streamed to you.
@@ -91,7 +95,7 @@ class Listener {
       .then((isDisabled) => {
         if (isDisabled) {
           // eslint-disable-next-line
-          console.error(streamDisabledMsg);
+          this.logger.log(WARN, streamDisabledMsg);
         }
         setTimeout(
           this.checkDocCountExceeded.bind(this),
@@ -101,7 +105,7 @@ class Listener {
       })
       .catch((err) => {
         // eslint-disable-next-line
-        console.error(err);
+        this.logger.log(ERROR, err);
         setTimeout(
           this.checkDocCountExceeded.bind(this),
           constants.CHECK_EXCEEDED_WAIT_SPACING,
@@ -148,58 +152,63 @@ class Listener {
   async listen({
     callback = defaultCallback,
     ackEnabled = false,
-    userErrorHandling = false,
+    maximumMessages = null,
+    batchSize = 10,
   }) {
+    this.logger.log(INFO, 'Starting to listen messages');
     if (!this.projectId) {
+      this.logger.log(ERROR, 'projectId undefined');
       throw ReferenceError('projectId undefined');
     }
     if (!this.subscriptionId) {
+      this.logger.log(ERROR, 'subscriptionId undefined');
       throw ReferenceError('subscriptionId undefined');
     }
+    if (!maximumMessages) {
+      this.logger.log(ERROR, 'undefined maximum messages to proceed');
+      throw ReferenceError('undefined maximum messages to proceed');
+    }
 
-    const subscriptionFullName = `projects/${this.projectId}/subscriptions/${this.subscriptionId}`;
-    const onMessageTryCatch = (msg) => {
-      try {
-        callback(msg);
-        if (ackEnabled) msg.ack();
-      } catch (err) {
-        // eslint-disable-next-line
-        console.error(`Error from callback: ${err}\n`);
-        if (ackEnabled) msg.nack();
-        throw err;
-      }
+    const subscriptionPath = this.pubsubClient.subscriptionPath(
+      this.projectId,
+      this.subscriptionId,
+    );
+    const pubsubRequest = {
+      subscription: subscriptionPath,
+      maxMessages: batchSize,
     };
-
-    const onMessageUserHandling = (msg) => {
-      callback(msg, (err) => {
-        if (err) {
-          // eslint-disable-next-line
-          console.error(`Error from callback: ${err}`);
-          if (ackEnabled) msg.nack();
-          throw err;
-        } else if (ackEnabled) {
-          msg.ack();
-        }
-      });
-    };
-
-    const onMessage = userErrorHandling
-      ? onMessageUserHandling
-      : onMessageTryCatch;
-
-    // eslint-disable-next-line
-    this.pubsubSubscription =
-      this.pubsubClient.subscription(subscriptionFullName);
-
-    // eslint-disable-next-line
-    console.log(
+    this.logger.log(
+      DEBUG,
       `Listeners for subscriptions have been set up
       and await message arrival.`,
     );
-
-    const maxAllowedDocumentExtracts = await this.checkAccountStatus();
-    this.checkDocCountExceeded(maxAllowedDocumentExtracts);
-    this.pullMessagesFromPubsub(onMessage);
+    while (!maximumMessages || this.messagesCount < maximumMessages) {
+      try {
+        if (maximumMessages) {
+          maximumMessages = Math.min(
+            batchSize,
+            maximumMessages - this.messagesCount,
+          );
+          await this.pullMessagesFromPubsub(
+            pubsubRequest,
+            subscriptionPath,
+            callback,
+            ackEnabled,
+          );
+        }
+      } catch (e) {
+        this.logger.log(
+          WARN,
+          `Encountered a problem while trying to pull a message from a stream. Error is as follows: ${e}`,
+        );
+        this.logger.log(
+          WARN,
+          'Due to the previous error, system will pause 10 seconds. System will then attempt to pull the message from the stream again.',
+        );
+        await helper.sleep(constants.PUBSUB_MESSAGES_WAIT_SPACING * 1000);
+        await this.setPubsubClient();
+      }
+    }
   }
 
   /**
@@ -207,29 +216,34 @@ class Listener {
    * @param {function} [callback] function which processes messages from Pubsub
    * @throws {ReferenceError} - when the pubsub subcription undefined
    */
-  pullMessagesFromPubsub(onMessage) {
-    if (!this.pubsubSubscription) {
-      throw ReferenceError('pubsub subcription undefined');
-    }
+  async pullMessagesFromPubsub(
+    pubsubRequest,
+    formattedSubscription,
+    callback,
+    ackEnabled,
+  ) {
+    const [response] = await this.pubsubClient.pull(pubsubRequest);
 
-    this.pubsubSubscription
-      .get()
-      .then((data) => {
-        const pubsubSub = data[FIRST_OBJECT];
-        pubsubSub.on('message', onMessage);
-        pubsubSub.on('error', (subErr) => {
-          // eslint-disable-next-line
-          console.error(`On Subscription Error: ${subErr}`);
-          pubsubSub.removeListener('message', onMessage);
-          pubsubSub.on('message', onMessage);
-        });
-      })
-      .catch((err) => {
-        // eslint-disable-next-line
-        console.error(
-          `Error retrieving subscription from Google PubSub: ${err}`,
-        );
-      });
+    for (const message of response.receivedMessages) {
+      const formatMessage = JSON.parse(message.message.data);
+      const messageInfo = formatMessage['data'][0]['id'];
+      this.logger.log(INFO, `Received news message with ID: ${messageInfo}`);
+      const newsMessage = formatMessage['data'][0]['attributes'];
+
+      const callbackResult = callback(newsMessage, this.subscriptionId);
+      if (ackEnabled) {
+        const ackRequest = {
+          subscription: formattedSubscription,
+          ackIds: [formatMessage.ack_id],
+        };
+        this.pubsubClient.acknowledge(ackRequest);
+      }
+      this.messagesCount += 1;
+      if (!callbackResult) {
+        return;
+      }
+      this.logger.log(DEBUG, `Callback returns: ${callbackResult}`);
+    }
   }
 
   /**

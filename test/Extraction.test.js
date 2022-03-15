@@ -13,7 +13,7 @@ const { constants } = core;
 const VALID_WHERE_STATEMENT = // eslint-disable-next-line no-unused-vars
   "publication_datetime >= '2018-01-01 00:00:00' AND publication_datetime <= '2018-01-03 00:00:00' AND LOWER(language_code) = 'en'";
 
-const VALID_USER_KEY = helper.loadEnvVariable('UserKey');
+const VALID_USER_KEY = helper.loadEnvVariable('userKey');
 const VALID_SNAPSHOT_ID = helper.loadEnvVariable('SnapshotId');
 
 describe('Factiva News - ', () => {

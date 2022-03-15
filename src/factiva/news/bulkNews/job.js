@@ -4,8 +4,10 @@ import { join } from 'path';
 // eslint-disable-next-line
 import { core, helper } from '@factiva/core';
 
-const { constants } = core;
-const { UserKey } = core;
+const { constants, UserKey, FactivaLogger } = core;
+const {
+  LOGGER_LEVELS: { INFO, DEBUG, ERROR },
+} = constants;
 
 /**
  * Base class to represent the operations that can be done using Factiva
@@ -53,6 +55,7 @@ class BulkNewsJob {
     this.submittedDatetime = Date.now();
     this.link = '';
     this.userKey = new UserKey(userKey);
+    this.logger = new FactivaLogger('/bulkNews-job.js');
   }
 
   /**
@@ -116,14 +119,19 @@ class BulkNewsJob {
    * or Streams API. On a successful response from the API, saves the
    * link of the job as well as the jobId on the caller instance.
    * @param {Object} [payload = undefined] - data required to submit the job
+   * @param {boolean} [useLatestApiVersion = false] - Flag to use new Analitycs API version
    * @throws {Error} - when the API reponse does not have a 201 status code.
    */
-  async submitJob(payload) {
+  async submitJob(payload, useLatestApiVersion = false) {
+    this.logger.log(DEBUG, `Submitting job: ${payload}`);
     this.submittedDatetime = Date.now();
     const headers = {
-      'user-key': this.userKey.apiKey,
+      'user-key': this.userKey.key,
       'Content-Type': 'application/json',
     };
+    if (useLatestApiVersion) {
+      headers['X-API-VERSION'] = constants.API_LATEST_VERSION;
+    }
 
     const response = await helper.apiSendRequest({
       method: 'POST',
@@ -146,14 +154,15 @@ class BulkNewsJob {
    * If the job has been completed, obtains the results of the job.
    */
   async getJobResults() {
+    this.logger.log(DEBUG, `Getting job results`);
     if (this.link === '') {
-      throw new ReferenceError(
-        'Job has not yet been submitted or Job ID was not set',
-      );
+      const msg = 'Job has not yet been submitted or Job ID was not set';
+      this.logger.log(ERROR, msg);
+      throw new ReferenceError(msg);
     }
 
     const headers = {
-      'user-key': this.userKey.apiKey,
+      'user-key': this.userKey.key,
       'Content-Type': 'application/json',
     };
 
@@ -166,15 +175,18 @@ class BulkNewsJob {
     this.jobState = response.data.data.attributes.current_state;
 
     if (!constants.API_JOB_EXPECTED_STATES.includes(this.jobState)) {
-      throw new RangeError(`Unexpected job state: ${this.jobState}`);
+      const msg = `Unexpected job state: ${this.jobState}`;
+      this.logger.log(ERROR, msg);
+      throw new RangeError(msg);
     }
 
     if (this.jobState === constants.API_JOB_FAILED_STATE) {
       const errors = response.data.errors
         .map((error) => `${error.title}: ${error.detail}`)
         .join();
-
-      throw new Error(`Job failed with error: ${errors}`);
+      const msg = `Job failed with error: ${errors}`;
+      this.logger.log(ERROR, msg);
+      throw new Error(msg);
     }
 
     if (this.jobState === constants.API_JOB_DONE_STATE) {
@@ -186,14 +198,16 @@ class BulkNewsJob {
    * Submits a new job to be processed, waits until the job is completed
    * and then retrieves the job results.
    * @param {string|Object} [payload = undefined] - data required to process the job
+   * @param {boolean} [useLatestApiVersion = false] - Flag to use new Analitycs API version
    * @throws {RangeError} - when an unexpected state is returned from API
    * @throws {Error} - when the returned state is a failed state
    */
-  async processJob(payload = undefined) {
-    await this.submitJob(payload);
+  async processJob(payload = undefined, useLatestApiVersion = false) {
+    this.logger.log(INFO, `Processing job: ${payload}`);
+    await this.submitJob(payload, useLatestApiVersion);
     await this.getJobResults();
     // eslint-disable-next-line no-console
-    console.log('Job link: ', this.link);
+    this.logger.log(DEGUB, `Job link:${this.link}`);
 
     while (this.jobState !== constants.API_JOB_DONE_STATE) {
       // eslint-disable-next-line no-await-in-loop
@@ -211,8 +225,8 @@ class BulkNewsJob {
    * @param {string} downloadPath - path where to store the downloaded file
    */
   async downloadFile(endpointUrl, downloadPath) {
-    const headers = { 'user-key': this.userKey.apiKey, responseType: 'stream' };
-
+    this.logger.log(INFO, `Dowloading File: ${endpointUrl}`);
+    const headers = { 'user-key': this.userKey.key, responseType: 'stream' };
     const response = await helper.apiSendRequest({
       method: 'GET',
       endpointUrl,
@@ -237,6 +251,7 @@ class BulkNewsJob {
    * @throws {ReferenceError} - when there are no files available to download
    */
   async downloadJobFiles(downloadPath) {
+    this.logger.log(INFO, 'Dowloading Job files');
     if (this.files.length === 0) {
       throw new ReferenceError('No files available for download');
     }
@@ -252,13 +267,37 @@ class BulkNewsJob {
       mkdirSync(finalDownloadPath);
     }
 
-    const downloadPromises = this.map((fileUrl) => {
-      const fileName = this.getFileName(fileUrl);
+    const downloadPromises = [];
+    this.files.forEach((fileUrl) => {
+      const fileName = BulkNewsJob.getFileName(fileUrl);
       const filePath = join(finalDownloadPath, fileName);
-      return downloadPromises.push((fileUrl, filePath));
+      downloadPromises.push(this.downloadFile(fileUrl, filePath));
     });
 
     await Promise.all(downloadPromises);
+  }
+
+  /**
+   * Obtain the Explain job samples from the Factiva Snapshots API.
+   * Returns a object array of up to 100 sample documents which  includes title and metadata fields.
+   * @param {number} [numSamples=10] - Number of sample documents to get explained by a job
+   * @returns {Promise<Object>} List of explain job samples
+   */
+  async getJobSamples(numSamples) {
+    this.logger.log(INFO, `Getting job samples: ${numSamples}`);
+    const headers = { 'user-key': this.userKey.key };
+    const qsParams = { num_samples: numSamples };
+    const endpointUrl = `${this.getEndpointUrl()}/${this.jobId}`;
+    this.logger.log(DEBUG, `Samples link: ${endpointUrl}`);
+
+    const response = await helper.apiSendRequest({
+      method: 'GET',
+      endpointUrl,
+      headers,
+      qsParams,
+    });
+
+    return response.data.data.attributes.sample;
   }
 
   static getFileName(fileUrl) {

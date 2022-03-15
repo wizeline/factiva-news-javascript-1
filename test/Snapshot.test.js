@@ -9,7 +9,7 @@ const { Snapshot, SnapshotQuery } = require('../lib/factiva/news/snapshot');
 
 const { UserKey } = core;
 
-const VALID_USER_KEY = helper.loadEnvVariable('UserKey');
+const VALID_USER_KEY = helper.loadEnvVariable('userKey');
 const VALID_SNAPSHOT_ID = helper.loadEnvVariable('SnapshotId');
 const DUMMY_KEY = 'abcd1234abcd1234abcd1234abcd1234';
 const VALID_WHERE_STATEMENT = "publication_datetime >= '2021-01-01'";
@@ -20,7 +20,7 @@ describe('Factiva News - ', () => {
       const s = await Snapshot.create(null, false, {
         query: VALID_WHERE_STATEMENT,
       });
-      expect(s.userKey.apiKey).to.equal(VALID_USER_KEY);
+      expect(s.userKey.key).to.equal(VALID_USER_KEY);
       expect(s.query.getBaseQuery()).to.deep.equal({
         query: { where: VALID_WHERE_STATEMENT },
       });
@@ -30,7 +30,7 @@ describe('Factiva News - ', () => {
       const s = await Snapshot.create(DUMMY_KEY, false, {
         query: "publication_datetime >= '2021-01-01'",
       });
-      expect(s.userKey.apiKey).to.equal(DUMMY_KEY);
+      expect(s.userKey.key).to.equal(DUMMY_KEY);
       expect(s.query.getBaseQuery()).to.deep.equal({
         query: { where: VALID_WHERE_STATEMENT },
       });
@@ -63,7 +63,7 @@ describe('Factiva News - ', () => {
       const s = await Snapshot.create(uk, false, {
         query: VALID_WHERE_STATEMENT,
       });
-      expect(s.userKey.apiKey).to.equal(DUMMY_KEY);
+      expect(s.userKey.key).to.equal(DUMMY_KEY);
     });
 
     it('should create snapshot instance using existing query instance', async () => {

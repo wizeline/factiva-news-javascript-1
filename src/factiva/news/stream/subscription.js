@@ -2,8 +2,10 @@
 import { core, helper } from '@factiva/core';
 import Listener from './Listener';
 
-const { constants, StreamUser } = core;
-
+const { constants, StreamUser, FactivaLogger } = core;
+const {
+  LOGGER_LEVELS: { INFO, DEBUG },
+} = constants;
 const SUBSCRIPTION_IDX = 0;
 class Subscription {
   /**
@@ -22,7 +24,7 @@ class Subscription {
    */
   constructor({ id = null, streamId = null, subscriptionType = null } = {}) {
     this.id = id;
-
+    this.logger = new FactivaLogger(__filename);
     let streamIdEnv;
     if (!streamId) {
       try {
@@ -51,6 +53,7 @@ class Subscription {
    * @throws {ReferenceError} - when there is no any streamId
    */
   async create({ headers = null } = {}) {
+    this.logger.log(DEBUG, 'Creating subscription');
     if (this.id) {
       throw ReferenceError('subcription already initialized');
     }
@@ -82,6 +85,7 @@ class Subscription {
    * @throws {ReferenceError} - when there is no any id (subscription created)
    */
   async delete({ headers = null }) {
+    this.logger.log(DEBUG, 'Deleting subscription');
     if (!this.id) {
       throw ReferenceError('undefined subscription');
     }
@@ -103,6 +107,7 @@ class Subscription {
    * @throws {ReferenceError} - when there isn't any id (subscription created)
    */
   async createListener(user) {
+    this.logger.log(INFO, 'Creating listener');
     if (!(user instanceof StreamUser)) {
       throw ReferenceError('user is not a StreamUser instance');
     }

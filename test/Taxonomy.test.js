@@ -5,15 +5,16 @@ const { expect } = chai;
 // eslint-disable-next-line import/no-extraneous-dependencies, import/no-unresolved
 const { helper } = require('@factiva/core');
 
-const Taxonomy = require('../lib/factiva/news/taxonomy');
+const { Taxonomy } = require('../lib/factiva/news/taxonomy');
 
-const VALID_USER_KEY = helper.loadEnvVariable('UserKey');
+const VALID_USER_KEY = helper.loadEnvVariable('userKey');
 
 describe('Factiva News - ', () => {
   describe('Taxonomy module', () => {
     it('create a taxonomy instance', async () => {
       const taxonomy = await Taxonomy.create(VALID_USER_KEY, false);
       expect(taxonomy.categories).to.be.an('array').that.includes('industries');
+      expect(taxonomy.identifiers).to.be.an('array').that.includes('isin');
     });
 
     it('should request identifiers for the industries taxonomy', async () => {
@@ -21,10 +22,20 @@ describe('Factiva News - ', () => {
       const industryCodes = await taxonomy.getCategoryCodes('industries');
       expect(industryCodes).to.include({
         i257: 'Pharmaceuticals',
-        iphrws: 'Pharmaceuticals Wholesale',
+        iphrws: 'Pharmaceutical Wholesale',
         i643: 'Pharmacies/Drug Stores',
       });
     });
+
+    it('should get a parse a big file request', async () => {
+      const taxonomy = await Taxonomy.create(VALID_USER_KEY, false);
+      const companyCodes = await taxonomy.getCategoryCodes('companies');
+      expect(companyCodes).to.include({
+        EBAAMC: 'E.B.A. & M. Corporation',
+        AZHI: 'Az Holdings Inc',
+        ORELSZ: 'ORELSELPROM OOO',
+      });
+    }).timeout(0);
 
     it('should request data for a company', async () => {
       const taxonomy = await Taxonomy.create(VALID_USER_KEY);
